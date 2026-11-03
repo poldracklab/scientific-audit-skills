@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 TRAILING = ".,;:)]}'\"/"
 LINK_RE = re.compile(r"https?://[^\s<>\"]+|(?<![\w/])10\.\d{4,9}/[^\s<>\"]+", re.I)
-DOI_RE = re.compile(r"(?<![\w/])10\.\d{4,9}/[^\s<>\"]+")
+DOI_RE = re.compile(r"(?:(?<![\w/])|(?<=doi\.org/))10\.\d{4,9}/[^\s<>\"]+")
 OSF_DOI_RE = re.compile(r"^/10\.17605/osf\.io/(.+)$", re.I)
 
 # (host suffix, class, role, needs_review)
@@ -118,9 +118,13 @@ def extract_links_from_text(text: str, file: str) -> list[Link]:
     return merge_links(links)
 
 
+def _is_web_uri(uri: str) -> bool:
+    return bool(re.match(r"(https?://|10\.\d{4,9}/)", uri, re.I))
+
+
 def _annotation_links(page, file: str, number: int) -> list[Link]:
     uris = (item.get("uri") for item in page.get_links())
-    return [make_link(uri, file, number) for uri in uris if uri]
+    return [make_link(uri, file, number) for uri in uris if uri and _is_web_uri(uri)]
 
 
 def extract_links_from_pdf(pdf: Path) -> list[Link]:
