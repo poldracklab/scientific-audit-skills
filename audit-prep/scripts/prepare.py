@@ -18,7 +18,7 @@ import review
 import scan
 import statements
 from archives import extract_archives
-from convert import process_documents, record_metadata
+from convert import previous_conversions, process_documents, record_metadata
 from corpus import Corpus, CorpusError
 from fetch_links import fetch_all
 from layout import (
@@ -124,10 +124,11 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
         return mf.load_manifest(folder) or mf.new_manifest(folder.name, plan["reviewed_by"])
     prepared = move_into_prepared(folder, corpus) if kind == "raw" else folder
     m = _start_manifest(prepared, plan, clients)
+    previous = previous_conversions(m)
     mf.write_manifest(prepared, m)
     steps = [lambda: apply_file_plan(prepared, plan, corpus, m),
              lambda: extract_archives(prepared, m, clients.run),
-             lambda: process_documents(prepared, m, clients.run),
+             lambda: process_documents(prepared, m, clients.run, previous),
              lambda: record_metadata(prepared, plan, m, clients.get_json),
              lambda: fetch_all(prepared, plan, m, clients)]
     for step in steps:

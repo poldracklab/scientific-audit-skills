@@ -4,6 +4,7 @@
 # ///
 """Convert the paper and supplements, extract statements, and record Crossref metadata."""
 import json
+import shutil
 from pathlib import Path
 from typing import Callable
 
@@ -15,11 +16,17 @@ import docs
 
 NOT_APPLICABLE = {"text": "not_applicable", "pages": "not_applicable",
                   "structured": "not_applicable", "statements": "not_applicable"}
+DONE = {"ok", "skipped"}  # `skipped` means an earlier run recorded the output as ok
 
 
-def _step(done: bool, action: Callable, label: str, m: dict) -> str:
-    if done:
-        return "skipped"
+def previous_conversions(manifest: dict) -> dict[str, dict]:
+    """Conversion statuses of the manifest a rerun starts from, by document path."""
+    docs_ = manifest.get("documents") or {}
+    found = ([docs_["paper"]] if docs_.get("paper") else []) + list(docs_.get("supplements") or [])
+    return {d["path"]: d.get("conversions") or {} for d in found}
+
+
+def _attempt(action: Callable, label: str, m: dict) -> str:
     try:
         action()
     except Exception as e:  # a failed conversion is recorded, never raised
@@ -28,20 +35,40 @@ def _step(done: bool, action: Callable, label: str, m: dict) -> str:
     return "ok"
 
 
+def _present(path: Path) -> bool:
+    return any(path.iterdir()) if path.is_dir() else path.exists()
+
+
+def _clear(outputs: list[Path]) -> None:
+    for path in outputs:
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
+
+
+def _convert(doc: dict, name: str, outputs: list[Path], action: Callable, ctx: tuple) -> None:
+    """Keep an output an earlier run recorded as done; otherwise clear any partial output and convert."""
+    m, prior = ctx
+    if prior.get(name) in DONE and _present(outputs[0]):
+        doc["conversions"][name] = "skipped"
+        return
+    _clear(outputs)
+    doc["conversions"][name] = _attempt(action, f"{doc['path']} {name}", m)
+
+
 def _structured(pdf: Path, out_dir: Path, run) -> None:
     result = docs.pdf_to_structured(pdf, out_dir, run=run)
     if result["status"] != "ok":
         raise RuntimeError(f"docling failed: {result['reason']}")
 
 
-def _process_pdf(pdf: Path, work: Path, doc: dict, m: dict, run) -> None:
+def _process_pdf(pdf: Path, work: Path, doc: dict, ctx: tuple, run) -> None:
     txt, pages = pdf.with_suffix(".txt"), work / "pages"
-    conv = doc["conversions"]
-    conv["text"] = _step(txt.exists(), lambda: docs.pdf_to_text(pdf, txt), f"{doc['path']} text", m)
-    conv["pages"] = _step(any(pages.glob("p-*.png")), lambda: docs.pdf_to_pages(pdf, pages),
-                          f"{doc['path']} pages", m)
-    conv["structured"] = _step((work / f"{pdf.stem}.md").exists(), lambda: _structured(pdf, work, run),
-                               f"{doc['path']} structured", m)
+    _convert(doc, "text", [txt], lambda: docs.pdf_to_text(pdf, txt), ctx)
+    _convert(doc, "pages", [pages], lambda: docs.pdf_to_pages(pdf, pages), ctx)
+    structured = [work / f"{pdf.stem}.md", work / "figures", work / "tables"]
+    _convert(doc, "structured", structured, lambda: _structured(pdf, work, run), ctx)
     doc["pages"] = len(list(pages.glob("p-*.png"))) or None
 
 
@@ -52,31 +79,34 @@ def _paper_statements(paper_dir: Path, doc: dict, m: dict) -> None:
         text = (paper_dir / "paper.txt").read_text(errors="replace")
         statements.write_statements_md(statements.extract_statements(text), out)
 
-    doc["conversions"]["statements"] = _step(out.exists(), write, f"{doc['path']} statements", m)
+    label = f"{doc['path']} statements"
+    doc["conversions"]["statements"] = "skipped" if out.exists() else _attempt(write, label, m)
 
 
-def _process_supplement(prepared: Path, doc: dict, m: dict, run) -> None:
+def _process_supplement(prepared: Path, doc: dict, ctx: tuple, run) -> None:
     src = prepared / doc["path"]
     work, suffix = src.with_suffix(""), src.suffix.lower()
     doc["conversions"] = dict(NOT_APPLICABLE)
-    label = f"{doc['path']} text"
     if suffix == ".pdf":
-        _process_pdf(src, work, doc, m, run)
+        _process_pdf(src, work, doc, ctx, run)
     elif suffix == ".docx":
         md = src.with_suffix(".md")
-        doc["conversions"]["text"] = _step(md.exists(), lambda: docs.docx_to_md(src, md, work / "media"), label, m)
+        _convert(doc, "text", [md, work / "media"], lambda: docs.docx_to_md(src, md, work / "media"), ctx)
     elif suffix == ".xlsx":
-        doc["conversions"]["text"] = _step(any(work.glob("*.csv")), lambda: docs.xlsx_to_csv(src, work), label, m)
+        _convert(doc, "text", [work], lambda: docs.xlsx_to_csv(src, work), ctx)
 
 
-def process_documents(prepared: Path, manifest: dict, run) -> None:
+def process_documents(prepared: Path, manifest: dict, run, previous: dict | None = None) -> None:
+    """Convert every document; `previous` (from `previous_conversions`) says which outputs are done."""
+    previous = previous or {}
     paper = manifest["documents"]["paper"]
     if paper:
         paper["conversions"] = dict(NOT_APPLICABLE)
-        _process_pdf(prepared / paper["path"], prepared / "paper", paper, manifest, run)
+        ctx = (manifest, previous.get(paper["path"], {}))
+        _process_pdf(prepared / paper["path"], prepared / "paper", paper, ctx, run)
         _paper_statements(prepared / "paper", paper, manifest)
     for doc in manifest["documents"]["supplements"]:
-        _process_supplement(prepared, doc, manifest, run)
+        _process_supplement(prepared, doc, (manifest, previous.get(doc["path"], {})), run)
 
 
 def record_metadata(prepared: Path, plan: dict, manifest: dict, get_json: Callable) -> None:
