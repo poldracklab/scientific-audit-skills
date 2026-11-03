@@ -314,6 +314,7 @@ def test_run_prep_records_review_and_finalize_refuses(reviewed_raw, writable_aft
     with pytest.raises(ReviewError, match="accept_failures:"):
         finalize(p)
     assert json.loads((p / "manifest.json").read_text())["finalized"] is False
+    assert not (p / "README.md").exists() and os.access(p / "paper" / "paper.pdf", os.W_OK)
     accept_all_problems(p)
     m = finalize(p)
     assert m["finalized"] is True and m["review"]["status"] == "ok"
@@ -326,3 +327,50 @@ def test_plan_rejects_empty_acceptance_reason(reviewed_raw):
     _edit_plan(reviewed_raw, lambda plan: plan.update(accept_failures={"data osf abcde": ""}))
     with pytest.raises(PlanError, match="accept_failures: data osf abcde: reason required"):
         checked_plan(reviewed_raw.raw, reviewed_raw.corpus)
+
+
+def _boom(*args, **kwargs):
+    raise RuntimeError("boom")
+
+
+def test_finalize_refuses_incomplete_run(reviewed_raw, writable_after, monkeypatch, capsys):
+    import prep
+    import prepare
+
+    monkeypatch.setattr(prepare, "fetch_all", _boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    assert json.loads((p / "manifest.json").read_text())["review"] is None
+    with pytest.raises(ReviewError, match="run: incomplete"):
+        finalize(p)
+    capsys.readouterr()
+    assert prep.main(["review", str(p), "--root", str(reviewed_raw.corpus.root)]) == 1
+    assert "run: incomplete" in capsys.readouterr().out
+
+
+def test_rerun_clears_stale_review(reviewed_raw, monkeypatch):
+    import prepare
+
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    m = json.loads((p / "manifest.json").read_text())
+    m["review"]["status"] = "ok"
+    (p / "manifest.json").write_text(json.dumps(m))
+    monkeypatch.setattr(prepare, "fetch_all", _boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        _run(reviewed_raw)
+    assert json.loads((p / "manifest.json").read_text())["review"] is None
+
+
+def test_link_added_after_run_is_a_problem(reviewed_raw, writable_after):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    plan = load_plan(p / "prep.yaml")
+    plan["links"].append({"url": "https://osf.io/zzzzz/", "canonical": "https://osf.io/zzzzz", "class": "osf",
+                          "role": "data", "needs_review": False, "found_in": [], "reason": "added late"})
+    write_plan(plan, p / "prep.yaml")
+    with pytest.raises(ReviewError, match="link https://osf.io/zzzzz: not_fetched"):
+        finalize(p)

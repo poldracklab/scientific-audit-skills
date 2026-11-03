@@ -38,7 +38,7 @@ def broken():
 
 @pytest.fixture
 def two_problems(clean):
-    clean["data"] = [{"source": "osf", "id": "abcde", "status": "listed_only", "reason": "12 GB"}]
+    clean["data"] = [{"source": "osf", "id": "abcde", "status": "listed_only", "reason": "over size policy"}]
     clean["code"] = [{"url": "https://gitlab.com/lab/code", "status": "unsupported", "reason": "no fetcher"}]
     return clean
 
@@ -90,6 +90,13 @@ def test_format_review_prints_keys_to_paste(two_problems):
     text = format_review(review_manifest(two_problems, {}))
     assert "FAILED, 2 open problem(s)" in text and "accept_failures:" in text
     assert '  "data osf abcde": "<why this is acceptable>"' in text
+    assert "- data osf abcde: listed_only — over size policy" in text.splitlines()
     two_problems["code"] = []
     ok = review_manifest(two_problems, {"accept_failures": {"data osf abcde": "a"}})
     assert format_review(ok) == "prep review: ok (1 accepted failure(s))"
+
+
+def test_nested_archive_is_a_problem(clean):
+    clean["local_data"] = [{"path": "data/d/inner.zip", "nested_archive": True}]
+    problems = manifest_problems(clean)
+    assert [(p.item, p.status) for p in problems] == [("local_data data/d/inner.zip", "not_extracted")]
