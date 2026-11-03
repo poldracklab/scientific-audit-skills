@@ -152,3 +152,44 @@ def test_own_doi_skipped_when_journal_article(raw_folder, crossref_fixture):
     plan = build_plan(raw_folder("paper_supp"), get_json=lambda u: crossref_fixture)
     own = _links(plan)[ARTICLE_LINK]
     assert (own["role"], own["needs_review"], own["reason"]) == ("skip", False, "the paper's own doi")
+
+
+def _dir_with(raw, name, files):
+    folder = raw / name
+    folder.mkdir(parents=True)
+    for f in files:
+        (folder / f).write_text("x\n")
+    return folder
+
+
+@pytest.mark.parametrize("name", ["audit-fable", "figs_paper", "paper_files", ".quarto", "renv", "node_modules",
+                                  ".ipynb_checkpoints", "osf_prereg", "venv", ".Rproj.user"])
+def test_legacy_audit_dirs_are_residue(tmp_path, name):
+    _dir_with(tmp_path, name, ["out.html"])
+    entry = classify_files(tmp_path)[0]
+    assert (entry["role"], entry["needs_review"]) == ("unsorted", False)
+
+
+@pytest.mark.parametrize("name", ["Smith_audit.qmd", "Smith_audit.html", ".Rhistory"])
+def test_legacy_audit_files_are_residue(tmp_path, name):
+    (tmp_path / name).write_text("x\n")
+    assert classify_files(tmp_path)[0]["role"] == "unsorted"
+
+
+def test_dir_of_code_and_html_needs_review(tmp_path):
+    _dir_with(tmp_path, "analysis", ["run.py", "report.html"])
+    entry = classify_files(tmp_path)[0]
+    assert (entry["role"], entry["needs_review"], entry["reason"]) == ("data", True, "directory: data or residue?")
+
+
+def test_dir_of_csv_is_data(tmp_path):
+    _dir_with(tmp_path, "behav", ["trials.csv"])
+    (tmp_path / "behav" / "sub").mkdir()
+    (tmp_path / "behav" / "sub" / "bold.nii.gz").write_text("x\n")
+    entry = classify_files(tmp_path)[0]
+    assert (entry["role"], entry["needs_review"]) == ("data", False)
+
+
+def test_empty_dir_needs_review(tmp_path):
+    (tmp_path / "empty").mkdir()
+    assert classify_files(tmp_path)[0]["needs_review"] is True
