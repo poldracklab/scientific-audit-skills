@@ -137,6 +137,27 @@ SHAPES = {
 }
 
 
+def _git(*args: str, cwd: Path) -> None:
+    import subprocess
+
+    ident = ["-c", "user.email=t@example.com", "-c", "user.name=T"]
+    subprocess.run(["git", *ident, *args], cwd=cwd, check=True, capture_output=True)
+
+
+@pytest.fixture(scope="session")
+def bare_repo(tmp_path_factory):
+    base = tmp_path_factory.mktemp("gitrepo")
+    work = base / "work"
+    work.mkdir()
+    _git("init", "-q", cwd=work)
+    (work / "README.md").write_text("Archive: 10.5281/zenodo.7654321\n")
+    _git("add", "README.md", cwd=work)
+    _git("commit", "-q", "-m", "init", cwd=work)
+    bare = base / "repo.git"
+    _git("clone", "--bare", "-q", str(work), str(bare), cwd=base)
+    return bare
+
+
 @pytest.fixture
 def raw_folder(tmp_path, fixture_pdf, fixture_docx):
     def make(shape: str) -> Path:
