@@ -17,7 +17,8 @@ HEADINGS = {
     "open_practices": r"open practices(?: statement)?",
 }
 HEADING_RES = {
-    kind: re.compile(rf"^\s*{pat}\s*[:.]?\s*$", re.IGNORECASE) for kind, pat in HEADINGS.items()
+    kind: re.compile(rf"^\s*(?:{pat})\s*(?:[:.]\s*(?P<rest>.*?))?\s*$", re.IGNORECASE)
+    for kind, pat in HEADINGS.items()
 }
 
 
@@ -29,32 +30,50 @@ class Statement:
     page: int
 
 
-def heading_kind(line: str) -> str | None:
-    clean = line.replace("\f", "")
+def match_heading(line: str) -> tuple[str, str] | None:
+    """Return (kind, inline text) if the line is a heading, bare or run-in."""
     for kind, regex in HEADING_RES.items():
-        if regex.match(clean):
-            return kind
+        m = regex.match(line)
+        if m:
+            return kind, m.group("rest") or ""
     return None
 
 
-def _statement_text(lines: list[str], start: int) -> str:
-    body = []
-    for line in lines[start:]:
-        if not line.replace("\f", "").strip() or heading_kind(line):
+def page_lines(text: str) -> list[tuple[int, str]]:
+    """Split into (page, text) pieces; blank physical lines have text ''.
+
+    A form feed is transparent: it only advances the page number.
+    """
+    out, page = [], 1
+    for line in text.split("\n"):
+        segments = line.split("\f")
+        if len(segments) == 1 and not line.strip():
+            out.append((page, ""))
+        for i, seg in enumerate(segments):
+            page += i > 0
+            if seg.strip():
+                out.append((page, seg.strip()))
+    return out
+
+
+def _statement_text(pieces: list[tuple[int, str]], start: int, inline: str) -> str:
+    body = [inline] if inline else []
+    for _, line in pieces[start:]:
+        if not line or match_heading(line):
             break
-        body.append(line.strip())
+        body.append(line)
     return " ".join(body)[:MAX_CHARS]
 
 
 def extract_statements(text: str) -> list[Statement]:
-    lines = text.replace("\f", "\n\f").split("\n")
-    found, page = [], 1
-    for i, line in enumerate(lines):
-        page += line.count("\f")
-        kind = heading_kind(line)
-        if kind:
-            heading = line.replace("\f", "").strip()
-            found.append(Statement(kind, heading, _statement_text(lines, i + 1), page))
+    pieces = page_lines(text)
+    found = []
+    for i, (page, line) in enumerate(pieces):
+        hit = match_heading(line)
+        if hit:
+            kind, inline = hit
+            heading = line[: len(line) - len(inline)].strip() if inline else line
+            found.append(Statement(kind, heading, _statement_text(pieces, i + 1, inline), page))
     return found
 
 
