@@ -50,8 +50,23 @@ def test_structured_smoke(fixture_pdf, tmp_path):
     assert r["status"] == "ok" and (tmp_path / "out" / "figures" / "figures.md").is_file()
 
 
-def test_tool_versions_keys():
-    assert set(tool_versions()) == {"pdftotext", "pdftoppm", "pandoc", "zstd", "docling", "git"}
+def test_tool_versions_keys(monkeypatch):
+    """The docling probe (`uvx ... docling --version`) may download; stub it so no network is used."""
+    import docs
+
+    real, real_which, probed = docs._first_line, shutil.which, []
+
+    def first_line(cmd, timeout):
+        if cmd[0] == "uvx":
+            probed.append(cmd)
+            return "docling 0.0-stub"
+        return real(cmd, timeout)
+
+    monkeypatch.setattr(docs, "_first_line", first_line)
+    monkeypatch.setattr(docs.shutil, "which", lambda tool: "/stub/uvx" if tool == "uvx" else real_which(tool))
+    versions = tool_versions()
+    assert set(versions) == {"pdftotext", "pdftoppm", "pandoc", "zstd", "docling", "git"}
+    assert versions["docling"] == "docling 0.0-stub" and probed
 
 
 PNG = b"\x89PNG\r\n\x1a\nfakepng"
