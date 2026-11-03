@@ -11,7 +11,8 @@ from urllib.parse import urlparse
 from fetch_common import FetchResult, RemoteFile, download_one
 
 API = "https://neurovault.org/api/collections"
-NEUROVAULT_ID_RE = re.compile(r"neurovault\.org/collections/(\d+)", re.I)
+LOOP_REASON = "pagination loop detected"
+NEUROVAULT_ID_RE =re.compile(r"neurovault\.org/collections/(\d+)", re.I)
 
 
 def neurovault_id(canonical: str) -> str | None:
@@ -19,18 +20,23 @@ def neurovault_id(canonical: str) -> str | None:
     return m.group(1) if m else None
 
 
-def list_images(collection_id: str, get_json) -> list[dict]:
-    """Image metadata across all pages, following `next`."""
-    images, url = [], f"{API}/{collection_id}/images/?format=json"
+def list_images(collection_id: str, get_json) -> tuple[list[dict], bool]:
+    """Image metadata across all pages, following `next`; the flag is True if `next` looped."""
+    images, seen, url = [], set(), f"{API}/{collection_id}/images/?format=json"
     while url:
+        if url in seen:
+            return images, True
+        seen.add(url)
         page = get_json(url)
         images += page["results"]
         url = page.get("next")
-    return images
+    return images, False
 
 
 def _remote_file(image: dict) -> RemoteFile:
-    return RemoteFile(PurePosixPath(urlparse(image["file"]).path).name, 0, image["file"])
+    """Prefix the basename with the image id so same-named images and metadata files never collide."""
+    name = PurePosixPath(urlparse(image["file"]).path).name
+    return RemoteFile(f"{image['id']}_{name}", 0, image["file"])
 
 
 def _write_json(dest: Path, name: str, data) -> None:
@@ -41,11 +47,13 @@ def _write_json(dest: Path, name: str, data) -> None:
 def fetch_neurovault(collection_id: str, dest: Path, get_json, get_bytes) -> FetchResult:
     try:
         collection = get_json(f"{API}/{collection_id}/")
-        images = list_images(collection_id, get_json)
+        images, looped = list_images(collection_id, get_json)
         files = [_remote_file(i) for i in images]
         _write_json(dest, "collection.json", collection)
         _write_json(dest, "images.json", images)
     except Exception as e:  # any API error is recorded, never raised
         return FetchResult("neurovault", collection_id, str(dest), "failed", [], str(e))
     records = [download_one(f, dest, get_bytes) for f in files]
-    return FetchResult("neurovault", collection_id, str(dest), "ok", records)
+    status = "ok" if records or not looped else "failed"
+    reason = LOOP_REASON if looped else ""
+    return FetchResult("neurovault", collection_id, str(dest), status, records, reason)
