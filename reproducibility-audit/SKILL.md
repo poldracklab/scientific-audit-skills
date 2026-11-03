@@ -31,8 +31,8 @@ most 1500 prose words, with ledgers, full robustness output and session details 
 ## Intake
 
 1. Run `uv run ~/.claude/skills/audit-prep/scripts/verify_run.py <folder>` on the folder you were given.
-2. `not_prepared` → invoke the `audit-prep` skill on it (scan, review `prep.yaml`, run, finalize), then continue. Warn the user that prepping from inside an audit makes prep model-dependent; the manifest records `prepared_by`.
-3. `prepared_not_run` → run `uv run ~/.claude/skills/audit-prep/scripts/new_run.py <Paper_Year> --model <your model name> --root <corpus root>`, `cd` into the printed path, continue.
+2. `not_prepared` → invoke the `audit-prep` skill on it (scan, review `prep.yaml`, run, finalize), then re-run `verify_run.py` on `prepared/<Paper_Year>` and continue at step 3. Warn the user that prepping from inside an audit makes prep model-dependent; the manifest records `prepared_by`.
+3. `prepared_not_run` → run `uv run ~/.claude/skills/audit-prep/scripts/new_run.py <Paper_Year> --model <your model name> --root <corpus root>` (the name is recorded only in `registry.jsonl`, outside the run; never write it anywhere else), `cd` into the printed path, continue.
 4. `run_dirty` or `run_modified` → stop and report the details; do not audit a contaminated folder.
 5. `run_ok` → read `README.md`, then `manifest.json`, then proceed. Never read `registry.jsonl` or any other run folder. All persistent output goes under `audit/` in the run folder (`audit/audit.qmd`, `audit/audit.html`, caches, working notes). Nothing inside the run folder may name the auditing model.
 
@@ -68,7 +68,7 @@ Prep has already fetched and converted everything; this stage records what it fo
 - **Preregistration:** `manifest.json` lists each registration with `date_registered`, `hash_verified` and `status`; `data_collection` gives the start, end, page and a verbatim quote from the methods (or null). The registration files are under `preregistration/<source>_<id>/`. A `hash_mismatch` or `unverified` status means the file may not be the frozen version; say so.
 - **Record `date_registered` against the end of data collection.** A "prereg" registered after data collection is not prospective, even if it predates cleaning. Also note whether a self-described clinical trial is in a trial registry (a `clinicaltrials_<nct>/` or other registry folder under `preregistration/`).
 - **Materials:** the paper text is `paper/paper.txt` (Markdown: `paper/paper.md`); page renders are `paper/pages/p-NNN.png` (Read them to see figures and CONSORT diagrams); figure crops are in `paper/figures/`, tables in `paper/tables/`; data/code/prereg statements are in `paper/statements.md` and every link in the paper is in `paper/links.json`. The authors' code is under `github/`; downloaded data under `data/<source>_<id>/` (e.g. `data/osf_<id>/`) and local data under `data/<name>/`.
-- Before calling material absent, check the manifest's `data` and `code` statuses (`listed_only`, `failed`, `unsupported`) and report what prep could not retrieve.
+- Before calling material absent, check the manifest (data statuses `partial`, `listed_only`, `failed`, `unsupported`; code status `failed`) and report what prep could not retrieve.
 - If a project has **no registration**, say so explicitly and switch stage 5 to "analytic flexibility".
 
 ## Stage 2: Read everything before computing
