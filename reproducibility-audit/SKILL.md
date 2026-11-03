@@ -51,9 +51,7 @@ even for a single paper:
 ## Stage 1: Gather materials
 
 ```bash
-python3 ~/.claude/skills/reproducibility-audit/scripts/osf_fetch.py files <node_id> --list-only   # inspect first
-python3 ~/.claude/skills/reproducibility-audit/scripts/osf_fetch.py files <node_id> --out osf      # skips video/audio/zip and >200 MB by default
-python3 ~/.claude/skills/reproducibility-audit/scripts/osf_fetch.py registration <reg_id>          # prereg metadata + SHA-256 check
+# materials are prepared by the audit-prep skill (see Intake)
 pdftotext -layout paper.pdf paper.txt
 pdftoppm -r 110 -png -f <p> -l <p> paper.pdf figs_paper/p   # then Read the PNGs to see figures/CONSORT
 ```
