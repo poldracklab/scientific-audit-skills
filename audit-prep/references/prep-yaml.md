@@ -28,7 +28,7 @@ links:
 |---|---|
 | `schema_version` | Plan format version. Currently `1`. Do not edit. |
 | `paper_id` | The raw folder name, `<FirstAuthor>_<Year>`. Becomes `prepared/<paper_id>/`. |
-| `reviewed_by` | Who reviewed the plan: the model name, or `human`. `scan` leaves it `null`; the reviewer must fill it. `run` copies it into the manifest as `prepared_by`. It never appears inside a run folder. |
+| `reviewed_by` | Who reviewed the plan: the model name, or `human`. `scan` leaves it `null`; the reviewer must fill it. `run` copies it into the manifest as `prepared_by`. Nothing inside a run folder may name the *auditing* model. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every run of a paper alike and does not identify the auditor; the audit's model identity lives only in `registry.jsonl`. |
 | `doi` | The paper's DOI, found on the first two pages of the paper PDF. `null` when none was found; the paper entry is then `needs_review: true`. Fill it in by hand if the reviewer finds it. |
 | `data_collection` | When the data were collected, from the paper text. `start` and `end` are ISO dates (`YYYY-MM-DD`, or `YYYY-MM` when only the month is stated); `source_quote` is the verbatim sentence; `page` is its page number. Leave all four `null` if the paper does not say. |
 | `size_policy` | Download caps. `max_file_mb` (default 500) is the largest single file downloaded; `max_source_mb` (default 5000) is the largest total per data source; `skip_ext` (default `mp4 mov avi wav mp3 m4a`) are never downloaded. Sources over a cap are inventoried, not downloaded. Raise a cap only with a reason. |

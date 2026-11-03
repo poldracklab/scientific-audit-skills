@@ -17,13 +17,11 @@ description: >
 Purpose: every audit model gets exactly the same material, already retrieved and already
 converted, in its own pristine copy, under a run ID that does not name the model. Differences
 between audits by different models then reflect the models, not what each could fetch or how
-well it parsed a PDF. Everything deterministic is a script; your judgment is confined to
-reviewing one YAML plan per paper.
+well it parsed a PDF. Your judgment is confined to reviewing one YAML plan per paper.
 
 **Prep once, up front.** Prep is meant to be done once, by the user with a model of their
 choosing, before any comparison runs. An audit skill that preps a folder on the fly makes prep
-model-dependent; the manifest records who did it as `prepared_by`. If you are prepping from
-inside an audit, say so to the user.
+model-dependent; the manifest records who did it as `prepared_by`. Tell the user if you do.
 
 ## Layout
 
@@ -78,7 +76,9 @@ uv run ~/.claude/skills/audit-prep/scripts/prep.py init /abs/corpus
 Put each raw paper folder (`Lastname_Year`, as is; prep does not rename) directly under the
 corpus root. Then, per paper:
 
-1. **Scan.** Writes `<raw>/prep.yaml` and `<raw>/statements.md` and prints both.
+1. **Scan.** Writes `<raw>/prep.yaml` and `<raw>/statements.md` and prints both. If it finds
+   no paper candidate, `statements.md` is not written: set a `paper` role by hand in
+   `prep.yaml`; `run` generates `paper/statements.md` later.
 
    ```zsh
    uv run ~/.claude/skills/audit-prep/scripts/prep.py scan /abs/corpus/Smith_2021
@@ -86,7 +86,8 @@ corpus root. Then, per paper:
 
 2. **Review `prep.yaml`** by the rules below and `references/prep-yaml.md`.
 3. **Dry run.** Prints every move, conversion and fetch, changes nothing. Exit 2 with a list of
-   blockers means the review is unfinished.
+   blockers means the review is unfinished: fix each listed item in `<raw>/prep.yaml`, then
+   repeat the dry run.
 
    ```zsh
    uv run ~/.claude/skills/audit-prep/scripts/prep.py run /abs/corpus/Smith_2021 --dry-run
@@ -121,7 +122,8 @@ for dir in /abs/corpus/*_<->*(/); do
 done
 ```
 
-All scripts accept `--root /abs/corpus`; without it they use the nearest ancestor holding
+`prep.py scan`, `run`, `finalize` and `new_run.py` accept `--root /abs/corpus`;
+`verify_run.py` and `prep.py init` take only their positional argument. Without `--root` they use the nearest ancestor holding
 `.autoaudit-root` and stop with a message naming `init` if there is none.
 
 ## Review rules for `prep.yaml`
@@ -141,7 +143,8 @@ Read `statements.md` and the paper text before editing. Then:
   leave it null if the paper does not say.
 - Fill `reviewed_by` last: your model name, or `human` if the user reviewed it.
 
-`run` refuses while `reviewed_by` is empty, any `needs_review` remains, or no file is `paper`.
+`run` refuses while `reviewed_by` is empty, any `needs_review` remains, or no file is `paper`;
+fix each listed item in `<raw>/prep.yaml`, then repeat the dry run.
 
 ## Runs
 
@@ -156,23 +159,25 @@ uv run ~/.claude/skills/audit-prep/scripts/new_run.py Smith_2021 --model <model-
 Dropbox). It clones the prepared folder to `runs/Smith_2021/<run_id>/` (APFS clone, rsync
 fallback), restores write permission, creates `audit/`, writes `run.json` (no model name), sets
 the Dropbox-ignore attribute, appends the model mapping to `registry.jsonl`, and prints the run
-path. `cd` into that printed path.
-
-Check a folder before auditing it:
+path. `cd` into that printed path. Check a folder before auditing it:
 
 ```zsh
 uv run ~/.claude/skills/audit-prep/scripts/verify_run.py /abs/corpus/runs/Smith_2021/<run_id>
 ```
 
 It prints one of `not_prepared`, `prepared_not_run`, `run_ok`, `run_dirty`, `run_modified`,
-then details; exit 0 only for `run_ok`. `run_modified`: a manifest file changed or is missing.
+then details; exit 0 only for `run_ok`. `run_modified`: a manifest-listed file, or `manifest.json`/`README.md` themselves, changed or is
+missing.
 `run_dirty`: a file outside `audit/` that is not in the manifest. Either way, do not audit it;
 make a new run.
 
 Blinding rules:
 
 - Never read `registry.jsonl`, and never look in another run folder.
-- Nothing inside a run folder may name the model: not file names, not paths, not report text.
+- Nothing inside a run folder may name the *auditing* model: not file names, not paths, not
+  report text. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every
+  run of a paper alike and does not identify the auditor; the audit's model identity lives only
+  in `registry.jsonl`.
 - All audit output goes under `audit/` in the run. `verify_run.py` ignores `audit/`, so an
   interrupted audit resumes in the same run and still shows `run_ok`.
 - Graders compare runs blind and unblind only by consulting the registry.
@@ -192,6 +197,8 @@ Blinding rules:
   structured conversion is recorded as `failed` and the rest of prep continues.
 - Run folders carry the `com.dropbox.ignored` attribute so Dropbox does not upload a copy per
   model; `prepared/` syncs. Use `--runs-root` if the corpus is not in Dropbox.
+- `scan` overwrites `prep.yaml` without asking. Never re-scan a folder whose `prep.yaml` has
+  been reviewed; back it up first if you must.
 - In zsh, `path` is tied to `PATH`: never use it as a loop variable.
 - `run` moves the raw folder, which resets a shell whose cwd was inside it. Always pass absolute
   paths, and never `cd` into a raw folder before running prep.
