@@ -166,3 +166,89 @@ def test_rerun_rejects_symlink_before_writing_outside_draft(reviewed_raw, tmp_pa
     with pytest.raises(CorpusError, match="symlink"):
         run_prep(raw, corpus, reviewed_raw.clients)
     assert external.read_bytes() == b"untouched"
+
+
+def test_prepared_statements_come_from_selected_paper(reviewed_raw, tmp_path):
+    raw, corpus = reviewed_raw.raw, reviewed_raw.corpus
+    external = tmp_path / "prior-findings.txt"
+    external.write_text("Unreviewed prior audit")
+    (raw / "statements.md").unlink()
+    (raw / "statements.md").symlink_to(external)
+    _append_file(raw, "statements.md", "skip")
+    run_prep(raw, corpus, reviewed_raw.clients)
+    statements = (corpus.prepared_dir(raw.name) / "paper/statements.md").read_text()
+    assert "Data availability" in statements
+    assert "Unreviewed prior audit" not in statements
+
+
+@pytest.mark.parametrize("change", ["skip", "remove", "url"])
+def test_existing_retrieval_source_change_requires_fresh_draft(reviewed_raw, change):
+    raw, corpus = reviewed_raw.raw, reviewed_raw.corpus
+    run_prep(raw, corpus, reviewed_raw.clients)
+    prepared = corpus.prepared_dir(raw.name)
+    before = (prepared / "manifest.json").read_bytes()
+    plan = load_plan(prepared / "prep.yaml")
+    link = next(l for l in plan["links"] if l["canonical"] == "https://github.com/lab/repo")
+    if change == "skip":
+        link["role"] = "skip"
+    elif change == "remove":
+        plan["links"].remove(link)
+    else:
+        link["url"] = "https://github.com/lab/repo/tree/other-version"
+    write_plan(plan, prepared / "prep.yaml")
+    with pytest.raises(PlanError, match="retrieval source changed.*fresh draft"):
+        run_prep(prepared, corpus, reviewed_raw.clients)
+    assert (prepared / "manifest.json").read_bytes() == before
+
+
+def test_new_retrieval_source_can_be_added_and_becomes_pinned(reviewed_raw):
+    raw, corpus = reviewed_raw.raw, reviewed_raw.corpus
+    run_prep(raw, corpus, reviewed_raw.clients)
+    prepared = corpus.prepared_dir(raw.name)
+    plan = load_plan(prepared / "prep.yaml")
+    link = {"url": "https://figshare.com/x/1", "canonical": "https://figshare.com/x/1",
+            "class": "figshare", "role": "data", "needs_review": False,
+            "found_in": [], "reason": "missed directly linked source"}
+    plan["links"].append(link)
+    write_plan(plan, prepared / "prep.yaml")
+    result = run_prep(prepared, corpus, reviewed_raw.clients)
+    assert any(d["source"] == "figshare" for d in result["data"])
+    plan["links"].remove(link)
+    write_plan(plan, prepared / "prep.yaml")
+    with pytest.raises(PlanError, match="retrieval source changed.*fresh draft"):
+        run_prep(prepared, corpus, reviewed_raw.clients)
+
+
+def test_raw_root_symlink_is_rejected(reviewed_raw, tmp_path):
+    raw = reviewed_raw.raw
+    external = tmp_path / "external-raw"
+    raw.rename(external)
+    raw.symlink_to(external, target_is_directory=True)
+    with pytest.raises(CorpusError, match="symlink"):
+        run_prep(raw, reviewed_raw.corpus, reviewed_raw.clients)
+    assert not reviewed_raw.corpus.prepared_dir(raw.name).exists()
+
+
+def test_prepared_container_symlink_is_rejected(reviewed_raw, tmp_path):
+    external = tmp_path / "external-prepared"
+    external.mkdir()
+    reviewed_raw.corpus.prepared.rmdir()
+    reviewed_raw.corpus.prepared.symlink_to(external, target_is_directory=True)
+    with pytest.raises(CorpusError, match="symlink"):
+        run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
+    assert list(external.iterdir()) == []
+
+
+def test_finalize_checks_symlinks_before_writing_manifest(reviewed_raw, tmp_path):
+    run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
+    prepared = reviewed_raw.corpus.prepared_dir(reviewed_raw.raw.name)
+    accept_all_problems(prepared)
+    path = prepared / "manifest.json"
+    before = path.read_bytes()
+    external = tmp_path / "external-manifest.json"
+    external.write_bytes(before)
+    path.unlink()
+    path.symlink_to(external)
+    with pytest.raises(CorpusError, match="symlink"):
+        finalize(prepared)
+    assert external.read_bytes() == before

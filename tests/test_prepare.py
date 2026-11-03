@@ -96,7 +96,7 @@ def test_run_records_documents_and_fetches(reviewed_raw):
     m = _run(reviewed_raw)
     paper = m["documents"]["paper"]
     assert paper["path"] == "paper/paper.pdf" and paper["pages"] == 2
-    assert paper["conversions"] == {"text": "ok", "pages": "ok", "structured": "failed", "statements": "skipped"}
+    assert paper["conversions"] == {"text": "ok", "pages": "ok", "structured": "failed", "statements": "ok"}
     supp = m["documents"]["supplements"][0]
     assert supp["original_name"] == "paper_sm.pdf" and supp["path"] == "paper/supplement_1.pdf"
     assert supp["conversions"]["statements"] == "not_applicable"
