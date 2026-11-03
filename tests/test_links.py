@@ -84,3 +84,19 @@ def test_merge_unions_found_in():
 ])
 def test_bare_host_is_skipped(raw, cls):
     assert classify(canonicalize(raw)) == (cls, "skip", False)
+
+
+@pytest.mark.parametrize("deposit", [
+    "10.5281/zenodo.4432816", "10.17605/OSF.IO/X4C56", "10.6084/m9.figshare.123",
+    "10.5061/dryad.abc12", "10.18112/openneuro.ds000001.v1.0.0",
+])
+def test_find_doi_ignores_repository_dois(deposit):
+    assert find_doi(f"data at {deposit} and doi 10.1126/sciadv.abf4355") == "10.1126/sciadv.abf4355"
+    assert find_doi(f"only {deposit} here") is None
+
+
+def test_find_dois_lists_article_candidates_in_order():
+    from links import find_dois
+
+    text = "10.5281/zenodo.1 then 10.1101/pre.1 and 10.1126/x.2, again 10.1101/pre.1"
+    assert find_dois(text) == ["10.1101/pre.1", "10.1126/x.2"]

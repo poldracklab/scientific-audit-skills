@@ -128,12 +128,36 @@ def _shape_paper_supp_docx(raw: Path, pdf: Path, docx: Path) -> None:
     shutil.copy(docx, raw / "1-s2.0-S1878929323001421-mmc1.docx")
 
 
+DEPOSIT_PAGE1 = "Stopping Task Paper\nData and code are archived at 10.5281/zenodo.4432816 for reuse.\n"
+ARTICLE_PAGE2 = "Citation\ndoi: 10.1126/sciadv.abf4355\n"
+
+
+def _deposit_pdf(out: Path, article_page2: bool) -> None:
+    """Page 1 carries only a Zenodo deposit DOI; the article DOI is on page 2 or absent."""
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), DEPOSIT_PAGE1, fontsize=10)
+    doc.new_page().insert_text((72, 72), ARTICLE_PAGE2 if article_page2 else "Methods\n", fontsize=10)
+    doc.save(out)
+
+
+def _shape_paper_deposit_doi(raw: Path, pdf: Path, docx: Path) -> None:
+    _deposit_pdf(raw / "sciadv.abf4355.pdf", article_page2=False)
+
+
+def _shape_paper_deposit_then_article(raw: Path, pdf: Path, docx: Path) -> None:
+    _deposit_pdf(raw / "sciadv.abf4355.pdf", article_page2=True)
+
+
 SHAPES = {
     "paper_supp": _shape_paper_supp,
     "paper_data_archive": _shape_paper_data_archive,
     "paper_residue": _shape_paper_residue,
     "paper_nodoi": _shape_paper_nodoi,
     "paper_supp_docx": _shape_paper_supp_docx,
+    "paper_deposit_doi": _shape_paper_deposit_doi,
+    "paper_deposit_then_article": _shape_paper_deposit_then_article,
 }
 
 

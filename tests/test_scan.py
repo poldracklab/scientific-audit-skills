@@ -98,3 +98,57 @@ def test_bare_host_link_reason():
     entry = _link_dict(links.make_link("https://osf.io/", "p.pdf", 7), None)
     assert (entry["role"], entry["needs_review"]) == ("skip", False)
     assert entry["reason"] == "bare host, no identifier (likely a line-wrapped URL)"
+
+
+ZENODO_LINK = "https://doi.org/10.5281/zenodo.4432816"
+ARTICLE_LINK = "https://doi.org/10.1126/sciadv.abf4355"
+
+
+@pytest.fixture
+def crossref_only_article(crossref_fixture):
+    """Crossref knows the article DOI; every other DOI is a 404 (DataCite deposits are not in Crossref)."""
+    import urllib.error
+
+    def get_json(url):
+        if url.endswith("10.1126/sciadv.abf4355"):
+            return crossref_fixture
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    return get_json
+
+
+def _links(plan):
+    return {l["canonical"]: l for l in plan["links"]}
+
+
+def _paper(plan):
+    return [f for f in plan["files"] if f["role"] == "paper"][0]
+
+
+def test_deposit_doi_is_never_the_paper_doi(raw_folder, crossref_only_article):
+    plan = build_plan(raw_folder("paper_deposit_doi"), get_json=crossref_only_article)
+    assert plan["doi"] is None and _paper(plan)["needs_review"] is True
+    zenodo = _links(plan)[ZENODO_LINK]
+    assert zenodo["role"] != "skip" and zenodo["reason"] != "the paper's own doi"
+
+
+def test_article_doi_found_after_deposit_doi(raw_folder, crossref_only_article):
+    plan = build_plan(raw_folder("paper_deposit_then_article"), get_json=crossref_only_article)
+    assert plan["doi"] == "10.1126/sciadv.abf4355" and _paper(plan)["needs_review"] is False
+    assert _links(plan)[ZENODO_LINK]["role"] != "skip"
+    assert _links(plan)[ARTICLE_LINK]["role"] == "skip"
+
+
+def test_own_doi_not_skipped_when_crossref_unconfirmed(raw_folder):
+    def failing(url):
+        raise OSError("boom")
+
+    plan = build_plan(raw_folder("paper_supp"), get_json=failing)
+    own = _links(plan)[ARTICLE_LINK]
+    assert own["role"] != "skip" and own["needs_review"] is True
+
+
+def test_own_doi_skipped_when_journal_article(raw_folder, crossref_fixture):
+    plan = build_plan(raw_folder("paper_supp"), get_json=lambda u: crossref_fixture)
+    own = _links(plan)[ARTICLE_LINK]
+    assert (own["role"], own["needs_review"], own["reason"]) == ("skip", False, "the paper's own doi")
