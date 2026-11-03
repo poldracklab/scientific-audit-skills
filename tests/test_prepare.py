@@ -374,3 +374,23 @@ def test_link_added_after_run_is_a_problem(reviewed_raw, writable_after):
     write_plan(plan, p / "prep.yaml")
     with pytest.raises(ReviewError, match="link https://osf.io/zzzzz: not_fetched"):
         finalize(p)
+
+
+def test_plan_rejects_accepting_incomplete_run(reviewed_raw):
+    _edit_plan(reviewed_raw, lambda plan: plan.update(accept_failures={"run": "x"}))
+    with pytest.raises(PlanError, match="accept_failures: run: cannot be accepted; rerun prep.py run instead"):
+        checked_plan(reviewed_raw.raw, reviewed_raw.corpus)
+
+
+def test_rerun_clears_stale_review_before_first_step(reviewed_raw, monkeypatch):
+    import prepare
+
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    m = json.loads((p / "manifest.json").read_text())
+    m["review"]["status"] = "ok"
+    (p / "manifest.json").write_text(json.dumps(m))
+    monkeypatch.setattr(prepare, "apply_file_plan", _boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        _run(reviewed_raw)
+    assert json.loads((p / "manifest.json").read_text())["review"] is None
