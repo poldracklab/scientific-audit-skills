@@ -37,3 +37,9 @@ def test_neuroimaging_audit_has_intake_and_is_blind():
     assert "audit-<llm>" not in text and '"-audit"' not in text and "audit/" in text
     t = (SKILLS / "neuroimaging-validity-audit/templates/audit_template.qmd").read_text()
     assert "MODEL" not in t and "identity recorded in the run registry" in t
+
+
+def test_review_rules_check_doi_is_not_a_deposit_doi():
+    for doc in ["audit-prep/SKILL.md", "audit-prep/references/prep-yaml.md"]:
+        text = (SKILLS / doc).read_text()
+        assert "confirm `doi` is the article's own DOI, not a deposit DOI" in text, doc
