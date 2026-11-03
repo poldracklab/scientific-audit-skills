@@ -445,3 +445,46 @@ def test_rerun_keeps_ok_conversions(reviewed_raw, monkeypatch):
         conv = m["documents"]["paper"]["conversions"]
         assert conv["pages"] == "skipped" and conv["text"] == "skipped"
     assert calls == [] and page.stat().st_mtime_ns == before
+
+
+def _set_role(plan, canonical, role):
+    for link in plan["links"]:
+        if link["canonical"] == canonical:
+            link["role"] = role
+
+
+def test_role_edit_after_run_is_a_problem(reviewed_raw, writable_after):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    plan = accept_all_problems(p)
+    _set_role(plan, "https://github.com/lab/hidden-tool", "code")
+    write_plan(plan, p / "prep.yaml")
+    with pytest.raises(ReviewError, match="plan: modified"):
+        finalize(p)
+
+
+def test_accept_failures_edit_is_not_a_plan_change(reviewed_raw, writable_after):
+    import review
+
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    plan = accept_all_problems(p)
+    m = json.loads((p / "manifest.json").read_text())
+    assert "plan" not in [x["item"] for x in review.review_folder(m, plan)["problems"]]
+    assert finalize(p)["finalized"] is True
+
+
+def test_plan_rejects_accepting_plan_change(reviewed_raw):
+    _edit_plan(reviewed_raw, lambda plan: plan.update(accept_failures={"plan": "x"}))
+    with pytest.raises(PlanError, match="accept_failures: plan: cannot be accepted; rerun prep.py run instead"):
+        checked_plan(reviewed_raw.raw, reviewed_raw.corpus)
+
+
+@pytest.mark.parametrize("reason", ["<why this is acceptable>", "  <why this is acceptable> "])
+def test_plan_rejects_placeholder_acceptance_reason(reviewed_raw, reason):
+    _edit_plan(reviewed_raw, lambda plan: plan.update(accept_failures={"data osf abcde": reason}))
+    msg = "accept_failures: data osf abcde: replace the placeholder with what the auditor will be missing"
+    with pytest.raises(PlanError, match=msg):
+        checked_plan(reviewed_raw.raw, reviewed_raw.corpus)

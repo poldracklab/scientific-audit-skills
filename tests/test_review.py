@@ -100,3 +100,33 @@ def test_nested_archive_is_a_problem(clean):
     clean["local_data"] = [{"path": "data/d/inner.zip", "nested_archive": True}]
     problems = manifest_problems(clean)
     assert [(p.item, p.status) for p in problems] == [("local_data data/d/inner.zip", "not_extracted")]
+
+
+PLAN = {"files": [], "links": [], "accept_failures": {"x": "y"}}
+CLEAN_REVIEW = {"status": "ok", "problems": [], "accepted": [], "unused": []}
+MODIFIED = {"kind": "plan", "item": "plan", "status": "modified",
+            "detail": "prep.yaml changed after run (files, links or roles); rerun prep.py run"}
+
+
+def test_folder_review_flags_missing_plan_hash(clean):
+    from review import review_folder
+
+    clean["review"] = dict(CLEAN_REVIEW)
+    assert MODIFIED in review_folder(clean, PLAN)["problems"]
+
+
+def test_folder_review_flags_changed_plan(clean):
+    from review import plan_sha256, review_folder
+
+    clean["review"] = dict(CLEAN_REVIEW)
+    clean["plan_sha256"] = plan_sha256({"files": [], "links": [{"canonical": "x", "role": "skip"}]})
+    assert MODIFIED in review_folder(clean, PLAN)["problems"]
+
+
+def test_plan_hash_ignores_accept_failures(clean):
+    from review import plan_sha256, review_folder
+
+    clean["review"] = dict(CLEAN_REVIEW)
+    clean["plan_sha256"] = plan_sha256({"files": [], "links": []})
+    assert review_folder(clean, PLAN)["problems"] == []
+    assert plan_sha256(PLAN) == plan_sha256({**PLAN, "accept_failures": {}})
