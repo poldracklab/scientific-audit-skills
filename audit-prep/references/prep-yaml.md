@@ -54,7 +54,7 @@ Roles:
   `mmc`, `esm`, `moesm`, `supplement`, case-insensitive) or a PDF with the same
   DOI as the paper. Numbered by filename.
 - `data`: a directory or file the authors shared as data or code.
-- `archive`: `.zip .tar .tar.gz .tgz .tar.zst .zst .7z`; unpacked by `run`.
+- `archive`: `.zip .tar .tar.gz .tgz .tar.zst .zst .7z`. Confirm it holds the authors' material, not residue.
 - `unsorted`: residue (`.git`, `.venv`, `.pytest_cache`, `__pycache__`,
   `.DS_Store`, a `.txt` next to a same-stem PDF). Moved to
   `unsorted/<paper_id>/`, never deleted.
