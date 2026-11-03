@@ -29,6 +29,9 @@ HOST_RULES = [
 ]
 REPOSITORY_DOI_PREFIXES = ("10.5281/zenodo", "10.17605/osf.io", "10.6084/m9.figshare", "10.5061/dryad",
                            "10.18112/openneuro")
+# Deposit DOIs on doi.org get the class of their repository (role data, no review).
+DOI_PREFIX_CLASSES = [("10.5281/zenodo", "zenodo"), ("10.6084", "figshare"), ("10.5061/dryad", "dryad"),
+                      ("10.18112/openneuro", "openneuro")]
 BARE_HOSTS = {"osf.io", "github.com", "zenodo.org", "neurovault.org", "openneuro.org",
               "figshare.com", "datadryad.org"}
 
@@ -89,7 +92,18 @@ def is_bare_host(canonical: str) -> bool:
     return parts.netloc.removeprefix("www.") in BARE_HOSTS and not parts.path.strip("/")
 
 
+def _doi_class(canonical: str) -> str | None:
+    parts = urlsplit(canonical)
+    if parts.netloc != "doi.org":
+        return None
+    doi = parts.path.lstrip("/").lower()
+    return next((cls for prefix, cls in DOI_PREFIX_CLASSES if doi.startswith(prefix)), None)
+
+
 def classify(canonical: str) -> tuple[str, str, bool]:
+    doi_cls = _doi_class(canonical)
+    if doi_cls:
+        return doi_cls, "data", False
     host = urlsplit(canonical).netloc
     for suffix, cls, role, review in HOST_RULES:
         if host == suffix or host.endswith("." + suffix):

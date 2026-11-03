@@ -77,7 +77,7 @@ Roles:
 |---|---|
 | `url` | The link as found (trailing punctuation removed). |
 | `canonical` | Normalized form used to deduplicate. OSF registry DOIs become `https://osf.io/<id>`. |
-| `class` | Host class: `osf`, `github`, `zenodo`, `figshare`, `dryad`, `openneuro`, `neurovault`, `aspredicted`, `clinicaltrials`, `prospero`, `doi`, `other`. |
+| `class` | Host class: `osf`, `github`, `zenodo`, `figshare`, `dryad`, `openneuro`, `neurovault`, `aspredicted`, `clinicaltrials`, `prospero`, `doi`, `other`. Deposit DOIs take their repository's class (`10.5281/zenodo` -> `zenodo`, `10.6084` -> `figshare`, `10.5061/dryad` -> `dryad`, `10.18112/openneuro` -> `openneuro`; role `data`). `run` picks the fetcher by `class`, so the reviewer may change it too (for example a `doi` link that is a Zenodo record becomes `zenodo`). Only `osf`, `zenodo` and `neurovault` data and `github` code are fetched; other classes end `unsupported` with their URL. |
 | `role` | `data`, `code`, `prereg`, `unknown`, or `skip`. Decides which fetcher `run` uses. |
 | `needs_review` | `true` for OSF non-registration URLs, GitHub, bare DOIs and unknown hosts. |
 | `found_in` | Every `{file, page}` where the link occurs. |
@@ -115,7 +115,7 @@ layouts are often missed.
    `role: code`. A tool, package or someone else's repository that the paper
    only cites or used is `role: skip`, reason "cited tool".
 5. **Bare DOIs and other hosts.** A DOI of a dataset (Zenodo, Dryad, Figshare)
-   is `data`; of a registration is `prereg`; of another article (a citation, a
+   is `data`, with `class` set to its repository when the scanner left it `doi`; of a registration is `prereg`; of another article (a citation, a
    preprint) is `skip`. Unknown hosts are `skip` unless the paper names them as
    where its data or code live.
 6. **Files.** Confirm the paper, and confirm `doi` is the article's own DOI, not a deposit DOI
