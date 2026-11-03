@@ -11,6 +11,7 @@ from pathlib import Path
 import fetch_common
 import fetch_github
 import fetch_neurovault
+import fetch_openneuro
 import fetch_osf
 import fetch_zenodo
 import links
@@ -39,11 +40,14 @@ def _clone(prepared: Path, link: dict, clients) -> dict:
 
 
 def _data_fetchers(policy, clients) -> dict:
+    """Per data class, `(id_of(canonical), fetch(ident, dest, canonical))`."""
     gj, gb = clients.get_json, clients.get_bytes
     return {
-        "osf": (fetch_osf.osf_id, lambda i, d: fetch_osf.fetch_osf_files(i, d, policy, gj, gb)),
-        "zenodo": (fetch_zenodo.zenodo_id, lambda i, d: fetch_zenodo.fetch_zenodo(i, d, policy, gj, gb)),
-        "neurovault": (fetch_neurovault.neurovault_id, lambda i, d: fetch_neurovault.fetch_neurovault(i, d, gj, gb)),
+        "osf": (fetch_osf.osf_id, lambda i, d, c: fetch_osf.fetch_osf_files(i, d, policy, gj, gb)),
+        "zenodo": (fetch_zenodo.zenodo_id, lambda i, d, c: fetch_zenodo.fetch_zenodo(i, d, policy, gj, gb)),
+        "neurovault": (fetch_neurovault.neurovault_id, lambda i, d, c: fetch_neurovault.fetch_neurovault(i, d, gj, gb)),
+        "openneuro": (fetch_openneuro.openneuro_id, lambda i, d, c: fetch_openneuro.fetch_openneuro(
+            i, d, policy, clients.post_json, gb, tag=fetch_openneuro.openneuro_tag(c))),
     }
 
 
@@ -62,7 +66,7 @@ def _fetch_data(prepared: Path, link: dict, clients, policy) -> dict:
     if not ident:
         return _failure(link, "failed", f"no {cls} id in {link['canonical']}")
     rel = f"data/{cls}_{ident}"
-    rec = dataclasses.asdict(fetch(ident, prepared / rel))
+    rec = dataclasses.asdict(fetch(ident, prepared / rel, link["canonical"]))
     return {**rec, "path": None if rec["status"] in NOTHING_ON_DISK else rel}
 
 
