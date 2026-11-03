@@ -10,7 +10,11 @@ from pathlib import Path
 
 MAX_CHARS = 2000
 HEADINGS = {
-    "data_availability": r"data (?:and code )?availability",
+    "data_availability": (
+        r"data (?:and (?:code|materials?) )?availability|availability of data(?: and materials)?"
+        r"|data accessibility|data sharing(?: statement)?"
+        r"|transparency and openness(?: promotion)?(?: statement)?"
+    ),
     "code_availability": r"code availability",
     "preregistration": r"pre-?registration",
     "funding": r"funding",
@@ -25,6 +29,10 @@ HEADING_RES = {
     kind: re.compile(rf"^\s*(?:{pat})\s*(?:[:.]\s*(?P<rest>.*?))?\s*$", re.IGNORECASE)
     for kind, pat in HEADINGS.items()
 }
+# Run-in headings with no punctuation, for these two kinds only; case-sensitive so that the body
+# must start with a capital ("Funding This work ..." but not "Funding was provided ...").
+RUN_IN_RE = re.compile(r"^\s*(?P<head>Acknowledg\w+|Funding)\s+(?=[A-Z])(?P<rest>.*?)\s*$")
+RUN_IN_KINDS = {"Funding": "funding"}
 
 
 @dataclass
@@ -41,7 +49,14 @@ def match_heading(line: str) -> tuple[str, str] | None:
         m = regex.match(line)
         if m:
             return kind, m.group("rest") or ""
-    return None
+    return _run_in_heading(line)
+
+
+def _run_in_heading(line: str) -> tuple[str, str] | None:
+    m = RUN_IN_RE.match(line)
+    if not m:
+        return None
+    return RUN_IN_KINDS.get(m.group("head"), "acknowledgements"), m.group("rest")
 
 
 def page_lines(text: str) -> list[tuple[int, str]]:
