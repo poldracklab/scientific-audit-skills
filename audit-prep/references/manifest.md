@@ -40,7 +40,8 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 
 ## Status vocabularies
 
-- Per-step statuses (conversions, links, code): `ok | skipped | failed | not_applicable`.
+- Per-step statuses (conversions, code): `ok | skipped | failed | not_applicable`.
+- `links` status: the status of the fetch record it produced (`data`, `preregistration` or `code` vocabulary), or `skipped` for roles that are never fetched (`skip`, `unknown`, Crossref relation DOIs). `fetched_to` is set only when something is on disk.
 - `data` status: `ok | partial | listed_only | failed | unsupported`.
   - `partial`: some files downloaded, others skipped by size policy.
   - `listed_only`: files listed but none downloaded.

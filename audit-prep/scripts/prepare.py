@@ -36,7 +36,6 @@ class PlanError(Exception):
     pass
 
 
-
 @dataclass
 class Clients:
     get_json: Callable = fetch_common.default_get_json
@@ -46,17 +45,14 @@ class Clients:
     tool_versions: Callable = docs.tool_versions
 
 
-
 def write_statements(pdf: Path, out: Path) -> Path:
     with tempfile.TemporaryDirectory() as tmp:
         text = docs.pdf_to_text(pdf, Path(tmp) / "paper.txt").read_text(errors="replace")
     return statements.write_statements_md(statements.extract_statements(text), out)
 
 
-
 def _paper_entry(plan: dict) -> dict | None:
     return next((f for f in plan["files"] if f.get("role") == "paper"), None)
-
 
 
 def scan_folder(raw: Path, get_json: Callable) -> dict:
@@ -70,7 +66,6 @@ def scan_folder(raw: Path, get_json: Callable) -> dict:
     return plan
 
 
-
 def checked_plan(folder: Path) -> dict:
     path = folder / PLAN_NAME
     if not path.is_file():
@@ -80,7 +75,6 @@ def checked_plan(folder: Path) -> dict:
     if problems:
         raise PlanError("prep.yaml is not ready:\n" + "\n".join(f"- {p}" for p in problems))
     return plan
-
 
 
 def print_plan(folder: Path, plan: dict, corpus: Corpus) -> None:
@@ -96,13 +90,11 @@ def print_plan(folder: Path, plan: dict, corpus: Corpus) -> None:
             print(f"FETCH {link['role']} {link.get('class')} {link['canonical']}")
 
 
-
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
              prep_versions=clients.tool_versions(), warnings=[])
     return m
-
 
 
 def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_run: bool = False) -> dict:
@@ -127,15 +119,26 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
     return m
 
 
+def _set_writable(target: Path, writable: bool) -> None:
+    mode = stat.S_IMODE(target.lstat().st_mode)
+    os.chmod(target, mode | 0o200 if writable else mode & ~0o222)
 
-def _make_readonly(root: Path) -> None:
+
+def _make_readonly(root: Path, keep: Path) -> None:
+    """Remove write bits from everything under `root` except `keep` (written last)."""
     for dirpath, dirnames, filenames in os.walk(root, topdown=False):
         for name in filenames + dirnames:
             target = Path(dirpath) / name
-            if not target.is_symlink():
-                os.chmod(target, stat.S_IMODE(target.lstat().st_mode) & ~0o222)
-    os.chmod(root, stat.S_IMODE(root.lstat().st_mode) & ~0o222)
+            if target != keep and not target.is_symlink():
+                _set_writable(target, False)
+    _set_writable(root, False)
 
+
+def _unlock_outputs(prepared: Path) -> None:
+    """After a crashed finalize, let README.md and manifest.json be rewritten."""
+    for name in ("README.md", mf.MANIFEST_NAME):
+        if (prepared / name).is_file():
+            _set_writable(prepared / name, True)
 
 
 def finalize(prepared: Path) -> dict:
@@ -144,8 +147,10 @@ def finalize(prepared: Path) -> dict:
         raise CorpusError(f"{prepared} has no manifest.json; run `prep.py run` first")
     if m.get("finalized"):
         return m
-    m.update(files=mf.hash_tree(prepared), finalized=True)
-    mf.write_manifest(prepared, m)
+    _unlock_outputs(prepared)
+    m["files"] = mf.hash_tree(prepared)
     (prepared / "README.md").write_text(mf.render_readme(m), encoding="utf-8")
-    _make_readonly(prepared)
+    _make_readonly(prepared, keep=prepared / mf.MANIFEST_NAME)
+    m["finalized"] = True
+    _set_writable(mf.write_manifest(prepared, m), False)
     return m

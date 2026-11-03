@@ -16,12 +16,12 @@ import fetch_zenodo
 import links
 import prereg
 
-LINK_STATUS = {"failed": "failed", "unsupported": "skipped", "skipped": "skipped"}
+# Fetch statuses that leave material on disk (a clone `skipped` because it already exists counts).
+ON_DISK = {"ok", "partial", "hash_mismatch", "unverified", "skipped"}
 
 
 def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", text).strip(".") or "repo"
-
 
 
 def _repo_dir(canonical: str) -> str:
@@ -29,12 +29,10 @@ def _repo_dir(canonical: str) -> str:
     return "github/" + "__".join(_slug(p) for p in parts)
 
 
-
 def _clone(prepared: Path, link: dict, clients) -> dict:
     rel = _repo_dir(link["canonical"])
     rec = fetch_github.clone_repo(link["url"], prepared / rel, run=clients.run)
     return {**rec, "path": None if rec["status"] == "failed" else rel}
-
 
 
 def _data_fetchers(policy, clients) -> dict:
@@ -46,19 +44,16 @@ def _data_fetchers(policy, clients) -> dict:
     }
 
 
-
 def _failure(link: dict, status: str, reason: str) -> dict:
     return {"source": link.get("class"), "id": link["canonical"], "url": link["url"], "path": None,
             "status": status, "files": [], "reason": reason}
-
 
 
 def _fetch_data(prepared: Path, link: dict, clients, policy) -> dict:
     cls = link.get("class")
     fetchers = _data_fetchers(policy, clients)
     if cls not in fetchers:
-        rec = _failure(link, "unsupported", f"no fetcher for {cls}; fetch manually if needed")
-        return {k: rec[k] for k in ("source", "id", "path", "status", "files", "reason")}
+        return _failure(link, "unsupported", f"no fetcher for {cls}; fetch manually if needed")
     id_of, fetch = fetchers[cls]
     ident = id_of(link["canonical"])
     if not ident:
@@ -66,7 +61,6 @@ def _fetch_data(prepared: Path, link: dict, clients, policy) -> dict:
     rel = f"data/{cls}_{ident}"
     rec = dataclasses.asdict(fetch(ident, prepared / rel))
     return {**rec, "path": None if rec["status"] == "failed" else rel}
-
 
 
 def _dispatch(prepared: Path, link: dict, clients, policy) -> tuple[str, dict]:
@@ -80,10 +74,8 @@ def _dispatch(prepared: Path, link: dict, clients, policy) -> tuple[str, dict]:
     return "data", _fetch_data(prepared, link, clients, policy)
 
 
-
 def _manifest_key(role: str, cls: str) -> str:
     return {"prereg": "preregistration", "code": "code"}.get(role, "code" if cls == "github" else "data")
-
 
 
 def _fetch_link(prepared: Path, link: dict, m: dict, clients, policy) -> dict:
@@ -96,15 +88,14 @@ def _fetch_link(prepared: Path, link: dict, m: dict, clients, policy) -> dict:
     if rec["status"] == "failed":
         m["warnings"].append(f"{link['canonical']}: fetch failed: {rec.get('reason')}")
     m[key].append(rec)
-    return {**link, "status": LINK_STATUS.get(rec["status"], "ok"), "fetched_to": rec.get("path")}
-
+    status = rec["status"]
+    return {**link, "status": status, "fetched_to": rec.get("path") if status in ON_DISK else None}
 
 
 def _relation_links(meta: dict | None) -> list[dict]:
     return [{"url": r["doi"], "canonical": links.canonicalize(r["doi"]), "class": "doi", "role": "unknown",
              "needs_review": False, "found_in": [], "reason": f"crossref relation {r['type']}",
              "status": "skipped", "fetched_to": None} for r in (meta or {}).get("relations", [])]
-
 
 
 def fetch_all(prepared: Path, plan: dict, manifest: dict, clients) -> None:

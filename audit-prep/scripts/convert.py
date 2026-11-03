@@ -28,12 +28,10 @@ def _step(done: bool, action: Callable, label: str, m: dict) -> str:
     return "ok"
 
 
-
 def _structured(pdf: Path, out_dir: Path, run) -> None:
     result = docs.pdf_to_structured(pdf, out_dir, run=run)
     if result["status"] != "ok":
         raise RuntimeError(f"docling failed: {result['reason']}")
-
 
 
 def _process_pdf(pdf: Path, work: Path, doc: dict, m: dict, run) -> None:
@@ -47,7 +45,6 @@ def _process_pdf(pdf: Path, work: Path, doc: dict, m: dict, run) -> None:
     doc["pages"] = len(list(pages.glob("p-*.png"))) or None
 
 
-
 def _paper_statements(paper_dir: Path, doc: dict, m: dict) -> None:
     out = paper_dir / STATEMENTS
 
@@ -56,7 +53,6 @@ def _paper_statements(paper_dir: Path, doc: dict, m: dict) -> None:
         statements.write_statements_md(statements.extract_statements(text), out)
 
     doc["conversions"]["statements"] = _step(out.exists(), write, f"{doc['path']} statements", m)
-
 
 
 def _process_supplement(prepared: Path, doc: dict, m: dict, run) -> None:
@@ -73,7 +69,6 @@ def _process_supplement(prepared: Path, doc: dict, m: dict, run) -> None:
         doc["conversions"]["text"] = _step(any(work.glob("*.csv")), lambda: docs.xlsx_to_csv(src, work), label, m)
 
 
-
 def process_documents(prepared: Path, manifest: dict, run) -> None:
     paper = manifest["documents"]["paper"]
     if paper:
@@ -82,7 +77,6 @@ def process_documents(prepared: Path, manifest: dict, run) -> None:
         _paper_statements(prepared / "paper", paper, manifest)
     for doc in manifest["documents"]["supplements"]:
         _process_supplement(prepared, doc, manifest, run)
-
 
 
 def record_metadata(prepared: Path, plan: dict, manifest: dict, get_json: Callable) -> None:

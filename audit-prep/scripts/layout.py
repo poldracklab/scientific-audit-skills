@@ -19,7 +19,6 @@ def _is_under(path: Path, parent: Path) -> bool:
     return path.resolve().is_relative_to(parent.resolve())
 
 
-
 def locate(target: Path, corpus: Corpus) -> tuple[Path, str]:
     target = Path(target)
     if target.exists():
@@ -28,7 +27,6 @@ def locate(target: Path, corpus: Corpus) -> tuple[Path, str]:
     if moved.exists():
         return moved, "prepared"
     raise CorpusError(f"{target} not found, and no {moved}")
-
 
 
 def move_into_prepared(raw: Path, corpus: Corpus) -> Path:
@@ -40,10 +38,8 @@ def move_into_prepared(raw: Path, corpus: Corpus) -> Path:
     return dest
 
 
-
 def _rel(path: Path, base: Path) -> str:
     return path.relative_to(base).as_posix()
-
 
 
 def _destination(entry: dict, prepared: Path, corpus: Corpus) -> Path | None:
@@ -60,16 +56,13 @@ def _destination(entry: dict, prepared: Path, corpus: Corpus) -> Path | None:
     return None
 
 
-
 def _parked(prepared: Path, name: str) -> Path:
     return prepared / f".parked-{name}"
-
 
 
 def _source(prepared: Path, name: str) -> Path:
     parked = _parked(prepared, name)
     return parked if parked.exists() else prepared / name
-
 
 
 def _park_collisions(prepared: Path, planned: list[tuple[dict, Path]]) -> None:
@@ -78,7 +71,6 @@ def _park_collisions(prepared: Path, planned: list[tuple[dict, Path]]) -> None:
         src = prepared / entry["path"]
         if entry["path"] in LAYOUT_DIRS and dest is not None and src.exists() and not dest.exists():
             src.rename(_parked(prepared, entry["path"]))
-
 
 
 def _move(src: Path, dest: Path) -> str:
@@ -91,7 +83,6 @@ def _move(src: Path, dest: Path) -> str:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(src), str(dest))
     return "ok"
-
 
 
 def _record_file(entry: dict, dest: Path, prepared: Path, corpus: Corpus, m: dict, previous: dict) -> None:
@@ -112,12 +103,10 @@ def _record_file(entry: dict, dest: Path, prepared: Path, corpus: Corpus, m: dic
                               "reason": entry.get("reason")})
 
 
-
 def _planned(plan: dict, prepared: Path, corpus: Corpus) -> list[tuple[dict, Path | None]]:
     entries = [f for f in plan["files"] if f["path"] not in OWN_FILES]
     entries.sort(key=lambda f: MOVE_ORDER.get(f["role"], 2))
     return [(f, _destination(f, prepared, corpus)) for f in entries]
-
 
 
 def apply_file_plan(prepared: Path, plan: dict, corpus: Corpus, manifest: dict) -> None:

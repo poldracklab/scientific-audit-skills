@@ -19,7 +19,6 @@ def _archive_stem(name: str) -> str | None:
     return name[: -len(suffix)] if suffix else None
 
 
-
 def _unzstd(archive: Path, dest: Path, run) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / archive.name[: -len(".zst")]
@@ -34,7 +33,6 @@ def _unzstd(archive: Path, dest: Path, run) -> None:
             shutil.move(str(out), str(dest / out.name))
 
 
-
 def _unpack(archive: Path, dest: Path, run) -> None:
     name = archive.name.lower()
     if name.endswith(".zip"):
@@ -47,7 +45,6 @@ def _unpack(archive: Path, dest: Path, run) -> None:
             tar.extractall(dest, filter="data")
 
 
-
 def _extract(archive: Path, target: Path, run) -> None:
     partial = target.with_name(f".{target.name}.partial")
     shutil.rmtree(partial, ignore_errors=True)
@@ -57,7 +54,6 @@ def _extract(archive: Path, target: Path, run) -> None:
         shutil.rmtree(partial, ignore_errors=True)
         raise
     partial.rename(target)
-
 
 
 def _extract_entry(prepared: Path, entry: dict, m: dict, run) -> None:
@@ -77,7 +73,6 @@ def _extract_entry(prepared: Path, entry: dict, m: dict, run) -> None:
             m["warnings"].append(f"{entry['path']}: extraction failed: {e}")
 
 
-
 def _nested_archives(prepared: Path, m: dict) -> list[dict]:
     dirs = {e["path"] for e in m["local_data"] if not e.get("archive") and not e.get("nested_archive")}
     dirs |= {e["path"].rsplit("/", 1)[0] + "/" + _archive_stem(Path(e["path"]).name)
@@ -85,7 +80,6 @@ def _nested_archives(prepared: Path, m: dict) -> list[dict]:
     found = [p for d in sorted(dirs) if (prepared / d).is_dir() for p in sorted((prepared / d).rglob("*"))
              if p.is_file() and _archive_stem(p.name)]
     return [{"path": _rel(p, prepared), "nested_archive": True} for p in found]
-
 
 
 def extract_archives(prepared: Path, manifest: dict, run) -> None:
