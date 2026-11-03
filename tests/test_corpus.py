@@ -11,7 +11,7 @@ def test_init_root_creates_marker_dirs_registry_and_deny_rule(corpus_root):
     assert c.prepared.is_dir() and c.runs.is_dir() and c.unsorted.is_dir()
     assert c.registry.is_file() and c.registry.read_text() == ""
     settings = json.loads((corpus_root / ".claude/settings.json").read_text())
-    assert "Read(./registry.jsonl)" in settings["permissions"]["deny"]
+    assert settings["permissions"]["deny"] == ["Read(/registry.jsonl)"]
 
 
 def test_find_root_walks_up_from_nested_folder(corpus_root):

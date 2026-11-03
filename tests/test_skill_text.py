@@ -63,3 +63,23 @@ def test_manifest_doc_matches_emitted_keys():
     assert "poppler" not in versions
     links_row = next(l for l in text.splitlines() if l.startswith("| `links`"))
     assert "decision" not in links_row
+
+
+CWD_RULE = ("Start the audit session with the corpus root as the working directory so "
+            "`.claude/settings.json` applies; then `cd` into the run folder.")
+
+
+def _intake(skill: str) -> str:
+    text = (SKILLS / skill / "SKILL.md").read_text()
+    return text.split("## Intake\n", 1)[1].split("\n## ", 1)[0]
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_session_cwd_rule_stated_in_prep_and_both_intakes():
+    assert CWD_RULE in _flat((SKILLS / "audit-prep/SKILL.md").read_text())
+    for skill in ["reproducibility-audit", "neuroimaging-validity-audit"]:
+        assert CWD_RULE in _flat(_intake(skill)), skill
+    assert _intake("reproducibility-audit") == _intake("neuroimaging-validity-audit")
