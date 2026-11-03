@@ -14,3 +14,26 @@ def test_audit_prep_skill_frontmatter_and_commands():
 
 def test_audit_prep_skill_has_no_zsh_path_loop():
     assert "for path in" not in (SKILLS / "audit-prep/SKILL.md").read_text()
+
+
+def test_reproducibility_audit_has_intake_and_new_layout():
+    text = (SKILLS / "reproducibility-audit/SKILL.md").read_text()
+    assert "## Intake" in text and "verify_run.py" in text and "new_run.py" in text and "audit-prep" in text
+    for old in ["osf_fetch.py", "figs_paper/", "prereg.txt", "~/Projects/<topic>_audits"]: assert old not in text, old
+    for new in ["paper/paper.txt", "paper/pages/", "data/osf_", "preregistration/", "audit/audit.qmd", "registry.jsonl"]: assert new in text, new
+
+
+def test_reproducibility_template_is_blind():
+    t = (SKILLS / "reproducibility-audit/templates/audit_template.qmd").read_text()
+    assert "MODEL" not in t and "identity recorded in the run registry" in t
+
+
+def test_no_scripts_dir_left(): assert not (SKILLS / "reproducibility-audit/scripts").exists()
+
+
+def test_neuroimaging_audit_has_intake_and_is_blind():
+    text = (SKILLS / "neuroimaging-validity-audit/SKILL.md").read_text()
+    assert "## Intake" in text and "verify_run.py" in text and "audit-prep" in text
+    assert "audit-<llm>" not in text and '"-audit"' not in text and "audit/" in text
+    t = (SKILLS / "neuroimaging-validity-audit/templates/audit_template.qmd").read_text()
+    assert "MODEL" not in t and "identity recorded in the run registry" in t
