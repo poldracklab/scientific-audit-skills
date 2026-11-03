@@ -156,6 +156,9 @@ Read `statements.md` and the paper text before editing. Then:
 - **Never delete a line.** Anything that should not be moved or fetched gets `role: skip` with
   a one-line reason.
 - OSF links: "preregistered at" means `prereg`; "data/materials/code available at" means `data`.
+- OSF file links come with a derived parent-project link (`needs_review: true`): fetch the
+  whole project only if the auditor needs more than the linked files; then set the file links
+  to `skip`, reason `contained in osf_<node id>`; otherwise set the parent to `skip`.
 - GitHub links: the authors' analysis code is `code`; a cited tool or someone else's package
   is `skip`, reason "cited tool". Article DOIs (citations, preprints) are `skip`.
 - Confirm the `paper` file, and confirm `doi` is the article's own DOI, not a deposit DOI

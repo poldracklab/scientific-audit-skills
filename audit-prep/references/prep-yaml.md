@@ -80,7 +80,7 @@ Roles:
 | `canonical` | Normalized form used to deduplicate. OSF registry DOIs become `https://osf.io/<id>`. |
 | `class` | Host class: `osf`, `github`, `zenodo`, `figshare`, `dryad`, `openneuro`, `neurovault`, `aspredicted`, `clinicaltrials`, `prospero`, `doi`, `other`. Deposit DOIs take their repository's class (`10.5281/zenodo` -> `zenodo`, `10.6084` -> `figshare`, `10.5061/dryad` -> `dryad`, `10.18112/openneuro` -> `openneuro`; role `data`). `run` picks the fetcher by `class`, so the reviewer may change it too (for example a `doi` link that is a Zenodo record becomes `zenodo`). Only `osf`, `zenodo`, `neurovault` and `openneuro` (metadata only) data and `github` code are fetched; other classes end `unsupported` with their URL. |
 | `role` | `data`, `code`, `prereg`, `unknown`, or `skip`. Decides which fetcher `run` uses. |
-| `needs_review` | `true` for OSF non-registration URLs, GitHub, bare DOIs and unknown hosts. |
+| `needs_review` | `true` for OSF links the scan could not resolve, derived OSF parent-project links, GitHub, bare DOIs and unknown hosts. |
 | `found_in` | Every `{file, page}` where the link occurs. |
 | `reason` | Why the role was proposed, or the reviewer's one-line justification. |
 
@@ -90,6 +90,24 @@ normal class and role with `needs_review: true`.
 A known data or code host with no identifier (for example `https://osf.io/`, left
 when a URL wraps across lines) is pre-set to `role: skip` with reason "bare host,
 no identifier (likely a line-wrapped URL)"; check that the full link is listed too.
+
+OSF ids are resolved at scan time (`GET /v2/guids/<id>/`), so an `osf` link
+says what it names, with `needs_review: false`: a project gets `role: data`,
+reason `osf project "<title>"`; a registration gets `role: prereg`, reason
+`osf registration "<title>"`; a single file gets `role: data`, reason
+`osf file <name> in project <node id>`, and `run` downloads just that file to
+`data/osf_<file id>/<path in project>`. For every project that holds linked
+files and is not itself listed, the scan adds a derived link
+`https://osf.io/<node id>` (`class: osf`, `role: data`, `needs_review: true`,
+`found_in` the union of its files' pages, reason "parent project of osf file
+links <ids>; fetch the whole project?"). Decide whether the auditor needs the
+whole project. When the parent project is fetched, set the individual file
+links to `role: skip` with reason `contained in osf_<node id>` to avoid
+duplicate copies (keeping both is harmless but noisy); otherwise set the
+parent to `role: skip`. If resolution failed (offline, private or unknown id),
+the link keeps the scanner's guess "osf project or registration?" with
+`needs_review: true`. A registration left at `role: data` ends `failed` at
+`run` with reason "https://osf.io/<id> is a registration; set role: prereg".
 
 ## Review rules
 
