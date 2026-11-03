@@ -18,7 +18,7 @@ Start the audit session with the corpus root as the working directory so `.claud
 2. `not_prepared` → invoke the `audit-prep` skill on it (scan, review `prep.yaml`, run, finalize), then re-run `verify_run.py` on `prepared/<Paper_Year>` and continue at step 3. Warn the user that prepping from inside an audit makes prep model-dependent; the manifest records `prepared_by`.
 3. `prepared_not_run` → run `uv run ~/.claude/skills/audit-prep/scripts/new_run.py <Paper_Year> --model <your model name> --root <corpus root>` (the name is recorded only in `registry.jsonl`, outside the run; never write it anywhere else), `cd` into the printed path, continue.
 4. `run_dirty` or `run_modified` → stop and report the details; do not audit a contaminated folder.
-5. `run_ok` → read `README.md`, then `manifest.json`, then proceed. Never read `registry.jsonl` or any other run folder. All persistent output goes under `audit/` in the run folder (`audit/audit.qmd`, `audit/audit.html`, caches, working notes). Nothing inside the run folder may name the auditing model.
+5. `run_ok` → read `README.md`; its "Prep review" section lists prep failures the preparer acknowledged: name each as a known gap in the report. Then `manifest.json`, then proceed. Never read `registry.jsonl` or any other run folder. All persistent output goes under `audit/` in the run folder (`audit/audit.qmd`, `audit/audit.html`, caches, working notes). Nothing inside the run folder may name the auditing model.
 
 ## Intake and scope
 

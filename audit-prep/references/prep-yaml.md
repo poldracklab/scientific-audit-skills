@@ -34,6 +34,7 @@ links:
 | `size_policy` | Download caps. `max_file_mb` (default 500) is the largest single file downloaded; `max_source_mb` (default 5000) is the largest total per data source; `skip_ext` (default `mp4 mov avi wav mp3 m4a`) are never downloaded. Sources over a cap are inventoried, not downloaded. Raise a cap only with a reason. |
 | `files` | One entry per top-level item in the raw folder. |
 | `links` | One entry per distinct URL or DOI found in any PDF, text or link annotation. |
+| `accept_failures` | Optional; add it after `run` only. A mapping of problem item → reason that acknowledges a prep problem which cannot be fixed. Keys are the item strings `prep.py review` prints (for example `data osf abcde`, `conversion paper/paper.pdf structured`, `preregistration osf x4c56`); each reason must be a non-empty string saying what the auditor will be missing. Accepted problems are listed under "Prep review" in `README.md`; a key matching no problem is reported as unused. Never accept a failure just to make the run pass. |
 
 ## `files` entries
 

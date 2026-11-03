@@ -94,3 +94,11 @@ def test_audit_prep_skill_lists_openneuro_as_a_fetcher():
     text = (SKILLS / "audit-prep/SKILL.md").read_text()
     assert "openneuro_<dsid>/" in text
     assert "OpenNeuro" not in _unsupported_host_sentence(text)
+
+
+def test_accept_failures_documented_and_intakes_read_prep_review():
+    assert "accept_failures" in (SKILLS / "audit-prep/SKILL.md").read_text()
+    assert "accept_failures" in (SKILLS / "audit-prep/references/prep-yaml.md").read_text()
+    assert "prep.py review" in (SKILLS / "audit-prep/SKILL.md").read_text()
+    for skill in ["reproducibility-audit", "neuroimaging-validity-audit"]:
+        assert "Prep review" in _intake(skill), skill

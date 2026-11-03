@@ -105,14 +105,28 @@ corpus root. Then, per paper:
    uv run ~/.claude/skills/audit-prep/scripts/prep.py run /abs/corpus/Smith_2021
    ```
 
-   Read the printed warnings and the `failed`/`unsupported` entries in `manifest.json`. Fix
-   what can be fixed (a missed link: edit `prepared/Smith_2021/prep.yaml`, rerun) before
-   finalizing.
+   After the last step `run` reviews the manifest. A *problem* is anything prep was supposed
+   to produce and did not: no paper document; a document conversion `failed`; Crossref
+   metadata missing; a local archive whose extraction `failed` or was `skipped`; a
+   preregistration not `ok`; a code record `failed` or `unsupported`; a data record not `ok`
+   (`partial`, `listed_only`, `failed`, `unsupported`). While any problem is open, `run`
+   exits 1 and prints each one with the exact key to paste. Fix and rerun first (a missed
+   link: edit `prepared/Smith_2021/prep.yaml`, rerun). Only a problem that cannot be fixed
+   goes under `accept_failures` in `prepared/Smith_2021/prep.yaml`, with a reason saying what
+   the auditor will be missing. Never accept a failure to make the run pass: the aim is
+   identical material for every model.
 5. **Finalize.** Hashes the tree, writes `README.md`, marks `finalized`, makes the tree
-   read-only. After this the folder is "prepared".
+   read-only. After this the folder is "prepared". Finalize refuses (exit 1) while a problem
+   is open; the review is written into `manifest.json` and `README.md`.
 
    ```zsh
    uv run ~/.claude/skills/audit-prep/scripts/prep.py finalize /abs/corpus/prepared/Smith_2021
+   ```
+
+   To print the open and accepted problems without changing anything:
+
+   ```zsh
+   uv run ~/.claude/skills/audit-prep/scripts/prep.py review /abs/corpus/prepared/Smith_2021
    ```
 
 For many papers, scan them all, review each plan, then run and finalize each. In zsh loops use
@@ -124,7 +138,7 @@ for dir in /abs/corpus/*_<->*(/); do
 done
 ```
 
-`prep.py scan`, `run`, `finalize` and `new_run.py` accept `--root /abs/corpus`;
+`prep.py scan`, `run`, `review`, `finalize` and `new_run.py` accept `--root /abs/corpus`;
 `verify_run.py` and `prep.py init` take only their positional argument. Without `--root` they use the nearest ancestor holding
 `.autoaudit-root` and stop with a message naming `init` if there is none.
 
@@ -146,10 +160,15 @@ Read `statements.md` and the paper text before editing. Then:
 - Fill `data_collection` (start, end, verbatim `source_quote`, `page`) from the methods, or
   leave it null if the paper does not say.
 - Fill `reviewed_by` last: your model name, or `human` if the user reviewed it.
+- `accept_failures` (top level, after `run`): only for a problem `review` prints that cannot
+  be fixed (embargoed registration, a dataset far over the size policy, a host with no fetcher
+  whose files you placed by hand under `data/<name>/`). The key is the printed item string;
+  the reason must be non-empty and say what the auditor will be missing. Accepted gaps appear
+  under "Prep review" in `README.md` for every auditor.
 
 `run` refuses while `reviewed_by` is empty, any `needs_review` remains, there is not exactly one
 `paper`, a role or class is not a known value, supplement `order`s are not distinct integers,
-or a listed path does not exist;
+a listed path does not exist, or an `accept_failures` entry has no reason;
 fix each listed item in `<raw>/prep.yaml`, then repeat the dry run.
 
 ## Runs
@@ -212,4 +231,4 @@ Blinding rules:
 - `run` moves the raw folder, which resets a shell whose cwd was inside it. Always pass absolute
   paths, and never `cd` into a raw folder before running prep.
 - A finalized prepared folder is read-only and `run` refuses it ("already finalized"). Check
-  the manifest and warnings before finalizing.
+  `prep.py review` and the warnings before finalizing.

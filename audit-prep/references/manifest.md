@@ -23,6 +23,7 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 | `unsorted` | `[{original_path, moved_to, reason}]`; files moved to `unsorted/<Paper_Year>/`. |
 | `files` | `[{path, size, sha256}]` for every regular file under the prepared folder except top-level `manifest.json` and `README.md`. Symlinks and Finder/Dropbox metadata (`.DS_Store`, `Icon\r`, `.dropbox`, `.dropbox.cache`, at any depth) are skipped; `.git` contents and `prep.yaml` are included. Sorted by path. Used by `verify_run.py`. |
 | `warnings` | `[str]`. |
+| `review` | Null until `run` finishes; then `{status: ok\|failed, problems: [{kind, item, status, detail}], accepted: [{kind, item, status, detail, accepted_reason}], unused: [str]}`, recomputed by `finalize` (a finalized folder has `status: ok`). `kind` is `paper`, `conversion`, `metadata`, `local_data`, `preregistration`, `code` or `data`. `item` grammar: `paper`; `conversion <doc path> <name>`; `metadata crossref`; `local_data <path>`; `preregistration <source> <id>`; `code <url>`; `data <source> <id>`. |
 
 ## documents entries
 
