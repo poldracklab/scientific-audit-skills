@@ -70,3 +70,15 @@ def test_readme_renders_content():
     text = render_readme(m)
     for s in ("A Title", "10.1/x", "2019-01-02", "deadbeef", "partial", "1 of 2", "unsorted/X_2020/x.bin", "watch out"):
         assert s in text
+
+
+def test_hash_tree_prunes_finder_and_dropbox_metadata(tmp_path):
+    from manifest import hash_tree
+
+    (tmp_path / "data" / "sub").mkdir(parents=True)
+    (tmp_path / "data" / "sub" / "trials.csv").write_text("x")
+    for junk in [".DS_Store", "data/.DS_Store", "data/sub/Icon\r", ".dropbox"]:
+        (tmp_path / junk).write_bytes(b"\x00")
+    (tmp_path / "data" / ".dropbox.cache").mkdir()
+    (tmp_path / "data" / ".dropbox.cache" / "blob").write_bytes(b"x")
+    assert [e["path"] for e in hash_tree(tmp_path)] == ["data/sub/trials.csv"]

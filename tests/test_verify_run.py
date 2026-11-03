@@ -71,3 +71,12 @@ def test_unreadable_audit_file_is_not_inspected(run_folder):
     secret.write_text("x")
     secret.chmod(0)
     assert verify(run_folder) == ("run_ok", [])
+
+
+def test_finder_and_dropbox_metadata_keep_run_ok(run_folder):
+    (run_folder / ".DS_Store").write_bytes(b"\x00")
+    (run_folder / "paper" / ".DS_Store").write_bytes(b"\x00")
+    (run_folder / "data" / "Icon\r").write_bytes(b"")
+    (run_folder / ".dropbox.cache").mkdir()
+    (run_folder / ".dropbox.cache" / "blob").write_bytes(b"x")
+    assert verify(run_folder) == ("run_ok", [])
