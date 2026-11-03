@@ -107,8 +107,9 @@ corpus root. Then, per paper:
 
    After the last step `run` reviews the manifest. A *problem* is anything prep was supposed
    to produce and did not: no paper document; a document conversion `failed`; Crossref
-   metadata missing; a local archive whose extraction `failed` or was `skipped`; a
-   preregistration not `ok`; a code record `failed` or `unsupported`; a data record not `ok`
+   metadata missing; a local archive whose extraction `failed` or was `skipped`, or a nested
+   archive (listed, never extracted); a prereg/code/data link in `prep.yaml` with no fetch
+   record (added after `run`); a preregistration not `ok`; a code record `failed` or `unsupported`; a data record not `ok`
    (`partial`, `listed_only`, `failed`, `unsupported`). While any problem is open, `run`
    exits 1 and prints each one with the exact key to paste. Fix and rerun first (a missed
    link: edit `prepared/Smith_2021/prep.yaml`, rerun). Only a problem that cannot be fixed
@@ -123,11 +124,15 @@ corpus root. Then, per paper:
    uv run ~/.claude/skills/audit-prep/scripts/prep.py finalize /abs/corpus/prepared/Smith_2021
    ```
 
-   To print the open and accepted problems without changing anything:
+   To print the open and accepted problems without changing anything (exit 0 ok, 1 open
+   problems, 2 plan or corpus error):
 
    ```zsh
    uv run ~/.claude/skills/audit-prep/scripts/prep.py review /abs/corpus/prepared/Smith_2021
    ```
+
+   An interrupted `run` leaves `review: null`; `finalize` and `review` report `run: incomplete`
+   until `run` is rerun to completion.
 
 For many papers, scan them all, review each plan, then run and finalize each. In zsh loops use
 a variable such as `dir`, never `path`:

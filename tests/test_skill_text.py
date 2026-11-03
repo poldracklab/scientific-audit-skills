@@ -102,3 +102,13 @@ def test_accept_failures_documented_and_intakes_read_prep_review():
     assert "prep.py review" in (SKILLS / "audit-prep/SKILL.md").read_text()
     for skill in ["reproducibility-audit", "neuroimaging-validity-audit"]:
         assert "Prep review" in _intake(skill), skill
+
+
+def test_review_exit_codes_and_incomplete_run_documented():
+    skill = _flat((SKILLS / "audit-prep/SKILL.md").read_text())
+    assert "exit 0 ok, 1 open problems, 2 plan or corpus error" in skill
+    assert "An interrupted `run` leaves `review: null`" in skill and "`run: incomplete`" in skill
+    row = next(l for l in (SKILLS / "audit-prep/references/manifest.md").read_text().splitlines()
+               if l.startswith("| `review`"))
+    for word in ["`run`", "`link`", "`not_extracted`"]:
+        assert word in row, word
