@@ -1,0 +1,93 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""Shared size policy, download selection and HTTP helpers for all fetchers."""
+import hashlib
+import json
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+
+MB = 10**6
+DEFAULT_SKIP_EXT = frozenset({"mp4", "mov", "avi", "wav", "mp3", "m4a"})
+USER_AGENT = "audit-prep/1.0"
+
+
+@dataclass
+class RemoteFile:
+    path: str
+    size: int
+    url: str
+    remote_hash: str | None = None
+
+
+@dataclass
+class SizePolicy:
+    max_file_mb: int = 500
+    max_source_mb: int = 5000
+    skip_ext: frozenset = DEFAULT_SKIP_EXT
+
+    @classmethod
+    def from_plan(cls, d: dict) -> "SizePolicy":
+        base = cls()
+        exts = d.get("skip_ext")
+        skip = base.skip_ext if exts is None else frozenset(e.lower().lstrip(".") for e in exts)
+        return cls(d.get("max_file_mb", base.max_file_mb), d.get("max_source_mb", base.max_source_mb), skip)
+
+    def allows(self, f: RemoteFile) -> bool:
+        ext = f.path.rsplit(".", 1)[-1].lower() if "." in f.path else ""
+        return ext not in self.skip_ext and f.size <= self.max_file_mb * MB
+
+
+@dataclass
+class FetchResult:
+    source: str
+    id: str
+    path: str
+    status: str
+    files: list[dict]
+    reason: str = ""
+
+
+def select_downloads(
+    files: list[RemoteFile], policy: SizePolicy, must_have: tuple[str, ...] = ()
+) -> tuple[list[RemoteFile], str]:
+    allowed = [f for f in files if policy.allows(f)]
+    if sum(f.size for f in allowed) <= policy.max_source_mb * MB:
+        return allowed, "ok"
+    chosen = [f for f in allowed if any(m in f.path for m in must_have)]
+    return (chosen, "partial") if chosen else ([], "listed_only")
+
+
+def download(url: str, dest: Path, get_bytes) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(get_bytes(url))
+    return dest
+
+
+def sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _open(req: urllib.request.Request) -> bytes:
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return resp.read()
+
+
+def default_get_bytes(url: str) -> bytes:
+    return _open(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}))
+
+
+def default_get_json(url: str) -> dict:
+    return json.loads(default_get_bytes(url))
+
+
+def default_post_json(url: str, payload: dict) -> dict:
+    headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers)
+    return json.loads(_open(req))
