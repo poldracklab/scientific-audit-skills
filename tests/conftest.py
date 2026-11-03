@@ -232,3 +232,28 @@ def osf_entry():
 @pytest.fixture
 def ctgov_fixture():
     return _load_fixture("ctgov_study.json")
+
+
+NV = "https://neurovault.org/api/collections/1234"
+NV_ROUTES = {
+    f"{NV}/": "neurovault_collection.json",
+    f"{NV}/images/?format=json": "neurovault_images_p1.json",
+    f"{NV}/images/?format=json&page=2": "neurovault_images_p2.json",
+}
+
+
+@pytest.fixture
+def zenodo_fixture():
+    return _load_fixture("zenodo_record.json")
+
+
+@pytest.fixture
+def neurovault_api():
+    import urllib.error
+
+    def get_json(url: str) -> dict:
+        if url not in NV_ROUTES:
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        return _load_fixture(NV_ROUTES[url])
+
+    return get_json

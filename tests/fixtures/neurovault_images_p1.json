@@ -1,0 +1,2 @@
+{"count": 2, "next": "https://neurovault.org/api/collections/1234/images/?format=json&page=2", "results": [
+ {"id": 1, "name": "map one", "file": "https://neurovault.org/media/images/1234/map1.nii.gz"}]}

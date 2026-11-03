@@ -1,0 +1,6 @@
+{"id": 123456, "conceptrecid": "123455", "conceptdoi": "10.5281/zenodo.123455", "doi": "10.5281/zenodo.123456",
+ "metadata": {"title": "Trial data", "doi": "10.5281/zenodo.123456"},
+ "files": [
+  {"key": "data/trials.csv", "size": 100, "checksum": "md5:aaa111", "links": {"self": "https://zenodo.org/api/records/123456/files/data/trials.csv/content"}},
+  {"key": "demo.mp4", "size": 200, "checksum": "md5:bbb222", "links": {"self": "https://zenodo.org/api/records/123456/files/demo.mp4/content"}}
+ ]}
