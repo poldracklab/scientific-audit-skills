@@ -142,6 +142,43 @@ for model in claude-opus-5-5 gpt-5.5 qwen/qwen3-coder; do
 done
 ```
 
+### 4. Reconcile the audits into a consensus report
+
+Once two or more runs of a paper have finished, run from the corpus root:
+
+```sh
+cd /path/to/autoaudit
+~/.claude/skills/audit-consensus/scripts/consensus.sh Poldrack_2026            # default model claude-opus-5-5
+~/.claude/skills/audit-consensus/scripts/consensus.sh Poldrack_2026 gpt-5.5    # or choose one
+```
+
+The launcher uses only completed runs. A completed run has a rendered `audit.html`, and a
+finished transcript if there is one. Unfinished runs are skipped with a warning.
+
+Before the agent starts, the launcher **rewrites model names in each completed run's
+`audit/` files**:
+
+- the run's own model becomes its run ID;
+- any other model used on the paper becomes `[redacted-model]`;
+- the registry keeps the mapping.
+
+It stops without launching in two cases:
+
+- a model name appears outside `audit/` in a file that differs between runs (an identical
+  file, such as the README's "Prepared by" line, cannot identify an auditor);
+- a model name survives redaction, for example inside a binary cache.
+
+The agent runs in a new `runs/Poldrack_2026/consensus/<consensus_id>/` folder:
+
+- Earlier consensus folders are made unreadable while it runs, then restored.
+- It classifies every finding as converged, disputed or untested.
+- It runs whatever extra analyses are needed to settle disputed and untested findings, and
+  writes `consensus.html`.
+
+Afterwards the launcher writes `run_models.json` and re-renders the report, so the
+run-to-model mapping appears in its appendix. Harness selection and `--interactive` work as
+they do for `new_run.sh`.
+
 ### Batch processing
 
 Both scripts exit with the agent's status, so they can be looped. In zsh, use `dir`, not

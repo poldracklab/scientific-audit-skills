@@ -34,7 +34,7 @@ build_prompt() {
     cat <<EOF
 Use the audit-consensus skill to reconcile the audits of $1.
 
-The current directory is a new consensus folder; inputs.json lists the completed runs, which are in ../../<run_id>/. Read the source runs but never modify them. Never read registry.jsonl.
+The current directory is a new consensus folder; inputs.json lists the completed runs, which are in ../../<run_id>/. Read the source runs but never modify them. Never read other folders under ../ (earlier consensus runs) or runs not listed in inputs.json. Never read registry.jsonl.
 
 Write all output in the current directory. Render consensus.html locally and give me the file path when done. Do not publish it anywhere.
 EOF
@@ -46,6 +46,43 @@ prepare_folder() {
         || die "could not prepare a consensus folder for $paper; no agent launched."
 }
 
+run_dirs() {
+    uv run --no-project --quiet python -I -c '
+import json, sys
+for run in json.load(open("inputs.json", encoding="utf-8"))["runs"]:
+    print(sys.argv[1] + "/" + run["run_id"])
+' "$1"
+}
+
+add_dir_flags() {
+    local dir
+    while IFS= read -r dir; do printf -- "--add-dir\0%s\0" "$dir"; done
+}
+
+HIDDEN=()
+
+file_mode() {
+    stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"
+}
+
+# Earlier consensus folders hold run_models.json and earlier verdicts; make them
+# unreadable while the agent runs. HIDDEN entries are "<mode>:<dir>".
+hide_earlier() {
+    local dir
+    for dir in ../*/; do
+        dir="${dir%/}"
+        [ "$dir" = "../$(basename "$PWD")" ] && continue
+        HIDDEN+=("$(file_mode "$dir"):$dir")
+        chmod 000 "$dir"
+    done
+}
+
+restore_hidden() {
+    local entry
+    for entry in "${HIDDEN[@]+"${HIDDEN[@]}"}"; do chmod "${entry%%:*}" "${entry#*:}"; done
+    HIDDEN=()
+}
+
 harness() {
     case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
         *claude*) echo claude ;;
@@ -55,19 +92,21 @@ harness() {
 }
 
 launch_interactive() {
-    local model="$1" prompt="$2" runs="$3"
+    local model="$1" prompt="$2"
+    shift 2
     case "$(harness "$model")" in
-        claude)   claude --model "$model" --add-dir "$runs" "$prompt" ;;
+        claude)   claude --model "$model" "$@" "$prompt" ;;
         codex)    codex --model "$model" "$prompt" ;;
         opencode) opencode run --model "openrouter/$model" "$prompt" ;;
     esac
 }
 
 launch_headless() {
-    local model="$1" prompt="$2" runs="$3"
+    local model="$1" prompt="$2"
+    shift 2
     case "$(harness "$model")" in
         claude)   claude -p --model "$model" --permission-mode auto \
-                      --output-format stream-json --verbose --add-dir "$runs" "$prompt" ;;
+                      --output-format stream-json --verbose "$@" "$prompt" ;;
         codex)    codex exec -m "$model" --sandbox workspace-write \
                       -c sandbox_workspace_write.network_access=true \
                       --skip-git-repo-check --json "$prompt" ;;
@@ -116,11 +155,16 @@ main() {
     echo "Consensus folder: $outdir" >&2
     prompt="$(build_prompt "$paper")"
     cd "$outdir"
+    local -a dirs=()
+    while IFS= read -r -d "" flag; do dirs+=("$flag"); done < <(run_dirs "$root/runs/$paper" | add_dir_flags)
+    trap restore_hidden EXIT
+    hide_earlier
     if [ "$interactive" = 1 ]; then
-        launch_interactive "$model" "$prompt" "$root/runs/$paper" || status=$?
+        launch_interactive "$model" "$prompt" "${dirs[@]}" || status=$?
     else
-        run_headless "$model" "$prompt" "$root/runs/$paper" || status=$?
+        run_headless "$model" "$prompt" "${dirs[@]}" || status=$?
     fi
+    restore_hidden
     finish_report "$scripts" "$root"
     return "$status"
 }

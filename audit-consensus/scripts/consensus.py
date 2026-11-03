@@ -55,10 +55,17 @@ def _all_aliases(models: dict[str, str]) -> list[str]:
     return [a for m in models.values() for a in aliases(m)]
 
 
+def _identical_in_all(runs: list[Path], rel: str) -> bool:
+    """A file byte-identical in every run (e.g. audit-prep's "Prepared by") cannot identify an auditor."""
+    paths = [r / rel for r in runs]
+    return all(p.is_file() for p in paths) and len({_sha256(p) for p in paths}) == 1
+
+
 def _check_outside_audit(runs: list[Path], strings: list[str]) -> None:
-    leaks = [f"{r.name}/{p}" for r in runs for p in outside_audit_leaks(r, strings)]
+    leaks = [f"{r.name}/{p}" for r in runs for p in outside_audit_leaks(r, strings)
+             if not _identical_in_all(runs, p)]
     if leaks:
-        raise ConsensusError(f"model names in prepared inputs (not redacted): {', '.join(leaks)}")
+        raise ConsensusError(f"model names outside audit/ in files that differ between runs (not redacted): {', '.join(leaks)}")
 
 
 def _redact_all(runs: list[Path], models: dict[str, str]) -> dict[str, dict[str, int]]:

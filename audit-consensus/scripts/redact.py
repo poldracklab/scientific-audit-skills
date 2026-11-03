@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 OTHER_PLACEHOLDER = "[redacted-model]"
+CHUNK_SIZE = 8 * 1024 * 1024
 
 
 def load_models(registry: Path, paper_id: str) -> dict[str, str]:
@@ -38,14 +39,43 @@ def _files(root: Path):
     return sorted(p for p in Path(root).rglob("*") if p.is_file() and not p.is_symlink())
 
 
-def _hits(path: Path, needles: list[bytes]) -> bool:
-    data = path.read_bytes().lower()
-    return any(n in data for n in needles)
+def _pattern(strings: list[str]) -> str:
+    """Whole-token match: no letter or digit on either side, and no ".<digit>" version tail."""
+    alternatives = "|".join(re.escape(s) for s in _longest_first(strings))
+    return rf"(?<![A-Za-z0-9])(?:{alternatives})(?![A-Za-z0-9])(?!\.[0-9])"
+
+
+def _byte_regex(strings: list[str]) -> re.Pattern:
+    return re.compile(_pattern(strings).encode(), re.IGNORECASE)
+
+
+def _chunks(path: Path):
+    with path.open("rb") as handle:
+        while chunk := handle.read(CHUNK_SIZE):
+            yield chunk
+
+
+def _accepted(match: re.Match, size: int, carried: bool) -> bool:
+    # Matches touching either edge of a partial buffer are judged in the buffer that holds their context.
+    return match.end() < size - 1 and not (carried and match.start() == 0)
+
+
+def _file_matches(path: Path, regex: re.Pattern, overlap: int) -> bool:
+    buf, carried = b"", False
+    for chunk in _chunks(path):
+        buf += chunk
+        if any(_accepted(m, len(buf), carried) for m in regex.finditer(buf)):
+            return True
+        carried = carried or len(buf) > overlap
+        buf = buf[-overlap:]
+    return any(not (carried and m.start() == 0) for m in regex.finditer(buf))
 
 
 def _leaks(run: Path, files, strings: list[str]) -> list[str]:
-    needles = [s.lower().encode() for s in strings]
-    return [p.relative_to(run).as_posix() for p in files if _hits(p, needles)]
+    if not strings:
+        return []
+    regex, overlap = _byte_regex(strings), max(len(s) for s in strings) + 4
+    return [p.relative_to(run).as_posix() for p in files if _file_matches(p, regex, overlap)]
 
 
 def outside_audit_leaks(run: Path, strings: list[str]) -> list[str]:
@@ -55,16 +85,17 @@ def outside_audit_leaks(run: Path, strings: list[str]) -> list[str]:
 
 
 def remaining_leaks(run: Path, strings: list[str]) -> list[str]:
-    return _leaks(Path(run), _files(run), strings)
+    """Model names still present under <run>/audit/ (outside it is checked before redaction)."""
+    return _leaks(Path(run), _files(Path(run) / "audit"), strings)
 
 
 def _substitute(text: str, plan: dict, run_id: str) -> tuple[str, int]:
-    total = 0
-    pairs = [(a, run_id) for a in plan["own_aliases"]] + [(a, OTHER_PLACEHOLDER) for a in plan["other_aliases"]]
-    for alias, replacement in pairs:
-        text, n = re.subn(re.escape(alias), lambda _: replacement, text, flags=re.IGNORECASE)
-        total += n
-    return text, total
+    own = {a.lower() for a in plan["own_aliases"]}
+    strings = plan["own_aliases"] + plan["other_aliases"]
+    if not strings:
+        return text, 0
+    regex = re.compile(_pattern(strings), re.IGNORECASE)
+    return regex.subn(lambda m: run_id if m.group(0).lower() in own else OTHER_PLACEHOLDER, text)
 
 
 def _write_preserving_mode(path: Path, text: str) -> None:

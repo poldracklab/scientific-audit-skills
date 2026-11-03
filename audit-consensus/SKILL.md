@@ -24,7 +24,9 @@ Work through the stages in order. Start from `templates/consensus_template.qmd`.
 1. Your working directory is a consensus folder `runs/<paper_id>/consensus/<consensus_id>/`
    created by `consensus.sh`. Read `inputs.json`: it lists the completed runs to reconcile
    (`runs[].run_id`) and any runs skipped because their audit was unfinished. Each source
-   run is at `../../<run_id>/`. Skipped runs are not inputs; do not read them.
+   run is at `../../<run_id>/`. Skipped runs are not inputs; do not read them. Never read
+   other folders under `consensus/`: earlier consensus runs hold the model mapping and
+   earlier verdicts, and would break blinding and anchor your adjudication.
 2. Refer to audits by run ID only. Never read `registry.jsonl`, never guess which model
    wrote an audit, and never write a model name into any file. Model names in the source
    runs have been replaced with run IDs or `[redacted-model]`. The operator attaches
