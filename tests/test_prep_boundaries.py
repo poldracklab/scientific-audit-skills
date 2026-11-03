@@ -133,3 +133,36 @@ def test_structured_conversion_option_is_boolean(reviewed_raw):
     write_plan(plan, reviewed_raw.raw / "prep.yaml")
     with pytest.raises(PlanError, match="structured_conversion must be a boolean"):
         run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
+
+
+def test_conversion_choice_is_fixed_for_draft(reviewed_raw):
+    raw, corpus = reviewed_raw.raw, reviewed_raw.corpus
+    run_prep(raw, corpus, reviewed_raw.clients)
+    prepared = corpus.prepared_dir(raw.name)
+    plan = load_plan(prepared / "prep.yaml")
+    plan["structured_conversion"] = False
+    write_plan(plan, prepared / "prep.yaml")
+    with pytest.raises(PlanError, match="conversion choice changed.*fresh draft"):
+        run_prep(prepared, corpus, reviewed_raw.clients)
+
+
+@pytest.mark.parametrize("name", ["../outside.txt", "/tmp/outside.txt", "nested/file.txt", ".."])
+def test_plan_paths_must_be_top_level_raw_names(reviewed_raw, name):
+    from prepare import checked_plan
+
+    _append_file(reviewed_raw.raw, name, "data")
+    with pytest.raises(PlanError, match="top-level name"):
+        checked_plan(reviewed_raw.raw, reviewed_raw.corpus)
+
+
+def test_rerun_rejects_symlink_before_writing_outside_draft(reviewed_raw, tmp_path):
+    raw, corpus = reviewed_raw.raw, reviewed_raw.corpus
+    run_prep(raw, corpus, reviewed_raw.clients)
+    external = tmp_path / "external.pdf"
+    external.write_bytes(b"untouched")
+    copied = corpus.prepared_dir(raw.name) / "paper/paper.pdf"
+    copied.unlink()
+    copied.symlink_to(external)
+    with pytest.raises(CorpusError, match="symlink"):
+        run_prep(raw, corpus, reviewed_raw.clients)
+    assert external.read_bytes() == b"untouched"

@@ -69,6 +69,17 @@ def test_tool_versions_keys(monkeypatch):
     assert versions["docling"] == "docling 0.0-stub" and probed
 
 
+def test_disabled_structured_conversion_never_probes_docling(monkeypatch):
+    import docs
+
+    def version(tool):
+        assert tool != "docling", "disabled Docling must not be downloaded for a version probe"
+        return "test"
+
+    monkeypatch.setattr(docs, "_tool_version", version)
+    assert tool_versions(structured=False)["docling"] is None
+
+
 PNG = b"\x89PNG\r\n\x1a\nfakepng"
 
 

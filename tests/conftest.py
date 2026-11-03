@@ -329,7 +329,7 @@ def clients(osf_api, crossref_fixture, zenodo_fixture):
         get_bytes=lambda url: b"prereg-bytes",
         post_json=lambda url, payload: {},
         run=_fake_run,
-        tool_versions=lambda: {},
+        tool_versions=lambda **options: {},
     )
 
 
