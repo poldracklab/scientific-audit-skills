@@ -1,0 +1,15 @@
+[project]
+name = "my-skills"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["pytest>=8", "pymupdf>=1.24", "pyyaml>=6", "openpyxl>=3.1", "python-docx>=1.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: needs external tools (docling, pandoc)"]
