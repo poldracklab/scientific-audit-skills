@@ -86,7 +86,7 @@ def test_new_run_layout_registry_and_blinding(prepared_corpus):
     assert run_path.parent == prepared_corpus.runs_dir("Paper_2024") and (run_path / "audit").is_dir()
     assert os.access(run_path / "paper/paper.pdf", os.W_OK)
     rj = json.loads((run_path / "run.json").read_text())
-    assert set(rj) == {"run_id", "paper_id", "created", "manifest_sha256"} and rj["run_id"] == run_path.name
+    assert set(rj) == {"run_id", "paper_id", "created", "manifest_sha256", "readme_sha256"} and rj["run_id"] == run_path.name
     assert MODEL not in "".join(str(p) for p in run_path.rglob("*"))
     assert MODEL not in _all_text(run_path)
     line = json.loads(prepared_corpus.registry.read_text().splitlines()[-1])
@@ -102,3 +102,19 @@ def test_new_run_refuses_unfinalized(corpus_with_unfinalized):
 def test_runs_root_override(prepared_corpus, tmp_path):
     run_path = new_run(prepared_corpus, "Paper_2024", "m", runs_root=tmp_path / "elsewhere")
     assert run_path.is_relative_to(tmp_path / "elsewhere")
+
+
+def test_failed_clone_leaves_no_dest(tmp_path):
+    src, dest = tmp_path / "src", tmp_path / "dst"
+    src.mkdir()
+
+    def fail(cmd, **k):
+        if cmd[0] == "cp":
+            (dest / "sub").mkdir(parents=True)
+            (dest / "sub/f").write_text("x")
+            (dest / "sub").chmod(0o555)
+        return subprocess.CompletedProcess(cmd, 1)
+
+    with pytest.raises(CorpusError):
+        clone_tree(src, dest, run=fail)
+    assert not dest.exists()
