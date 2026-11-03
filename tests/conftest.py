@@ -323,12 +323,29 @@ def _fake_run(cmd, *args, **kwargs):
 
 
 @pytest.fixture
-def clients(osf_api, crossref_fixture, zenodo_fixture):
+def github_transport(bare_repo, monkeypatch):
+    """Keep production URLs in plans; substitute only the offline Git transport."""
+    import socket
+
+    monkeypatch.setattr(socket, "getaddrinfo", lambda host, port, *a, **k: [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))])
+
+    def run(cmd, *args, **kwargs):
+        if cmd[0] == "git" and "clone" in cmd:
+            assert cmd[-2].startswith("https://github.com/")
+            return subprocess.run(["git", "clone", str(bare_repo), cmd[-1]], *args, **kwargs)
+        return _fake_run(cmd, *args, **kwargs)
+
+    return run
+
+
+@pytest.fixture
+def clients(osf_api, crossref_fixture, zenodo_fixture, github_transport):
     return Clients(
         get_json=_router(osf_api, crossref_fixture, zenodo_fixture),
         get_bytes=lambda url: b"prereg-bytes",
         post_json=lambda url, payload: {},
-        run=_fake_run,
+        run=github_transport,
         tool_versions=lambda **options: {},
     )
 
@@ -352,8 +369,6 @@ def review_plan(prepped, bare_repo):
         item["needs_review"] = False
     for link in plan["links"]:
         link["role"] = ROLES.get(link["canonical"], link["role"])
-        if link["canonical"] == "https://github.com/lab/repo":
-            link["url"] = str(bare_repo)
     write_plan(plan, plan_path)
     return prepped
 

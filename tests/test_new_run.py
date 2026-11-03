@@ -132,3 +132,65 @@ def test_new_run_refuses_folder_finalized_before_the_gate(prepared_corpus):
     manifest.write_text(json.dumps(m))
     with pytest.raises(CorpusError, match="finalize"):
         new_run(prepared_corpus, "Paper_2024", "m")
+
+
+@pytest.mark.parametrize("kind", ["directory", "file", "symlink", "dangling"])
+def test_clone_refuses_existing_destination_without_touching_it(tmp_path, kind):
+    src, dest = tmp_path / "src", tmp_path / "dst"
+    src.mkdir()
+    external = tmp_path / "outside"
+    external.mkdir()
+    (external / "keep").write_text("keep")
+    if kind == "directory":
+        dest.mkdir()
+        (dest / "keep").write_text("keep")
+    elif kind == "file":
+        dest.write_text("keep")
+    else:
+        dest.symlink_to(external if kind == "symlink" else tmp_path / "absent")
+    calls = []
+
+    def fail(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 1)
+
+    with pytest.raises(CorpusError, match="exists"):
+        clone_tree(src, dest, run=fail)
+    assert calls == []
+    assert dest.exists() or dest.is_symlink()
+    assert (external / "keep").read_text() == "keep"
+    if kind == "directory":
+        assert (dest / "keep").read_text() == "keep"
+    elif kind == "file":
+        assert dest.read_text() == "keep"
+
+
+def test_run_id_collision_preserves_previous_audit(prepared_corpus):
+    first = new_run(prepared_corpus, "Paper_2024", "m", rng=random.Random(7))
+    (first / "audit/notes.txt").write_text("completed work")
+    registry = prepared_corpus.registry.read_bytes()
+    with pytest.raises(CorpusError, match="exists"):
+        new_run(prepared_corpus, "Paper_2024", "m", rng=random.Random(7))
+    assert (first / "audit/notes.txt").read_text() == "completed work"
+    assert prepared_corpus.registry.read_bytes() == registry
+
+
+def test_destination_is_reserved_before_copy_and_stays_reserved_during_fallback(tmp_path):
+    src, dest = tmp_path / "src", tmp_path / "dst"
+    src.mkdir()
+    (src / "file").write_text("source")
+    inode = []
+
+    def copy(cmd, **kwargs):
+        assert dest.is_dir()
+        inode.append(dest.stat().st_ino)
+        if cmd[0] == "cp":
+            (dest / "partial").write_text("partial")
+            return subprocess.CompletedProcess(cmd, 1)
+        assert not (dest / "partial").exists()
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    assert clone_tree(src, dest, run=copy) == "rsync"
+    assert inode[0] == inode[1]
+    assert (dest / "file").read_text() == "source"

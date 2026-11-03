@@ -26,8 +26,6 @@ def _review(plan, bare_repo):
         item["needs_review"] = False
     for link in plan["links"]:
         link["role"] = ROLES.get(link["canonical"], link["role"])
-        if link["canonical"] == "https://github.com/lab/repo":
-            link["url"] = str(bare_repo)
     return plan
 
 
