@@ -21,6 +21,8 @@ SNAPSHOT_QUERY = (
 )
 NOT_FOUND = "dataset not found"
 NO_SNAPSHOT = "dataset has no snapshot"
+RESERVED = {"dataset.json", "files.json"}
+RESERVED_REASON = "name reserved for prep metadata"
 OPENNEURO_ID_RE = re.compile(r"(?:openneuro\.org/datasets/|10\.18112/openneuro\.)(ds\d{6})", re.I)
 TAG_RE = re.compile(r"openneuro\.org/datasets/ds\d{6}/versions/([^/?#\s]+)|10\.18112/openneuro\.ds\d{6}\.v([^/?#\s]+)", re.I)
 
@@ -107,6 +109,8 @@ def _written_names(snapshot: dict) -> set[str]:
 
 
 def _root_record(f: RemoteFile, dest: Path, policy: SizePolicy, get_bytes, written: set[str]) -> dict:
+    if f.path in RESERVED:
+        return file_record(f, reason=RESERVED_REASON)
     if f.path in written:
         return file_record(f, sha256_file(dest / f.path))
     return download_one(f, dest, get_bytes) if policy.allows(f) else file_record(f)
