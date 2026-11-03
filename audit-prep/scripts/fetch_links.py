@@ -16,6 +16,7 @@ import fetch_osf
 import fetch_zenodo
 import links
 import prereg
+from downloaded_archives import extract_downloaded_archives
 
 # Fetch statuses that leave material on disk (a clone `skipped` because it already exists counts).
 ON_DISK = {"ok", "partial", "hash_mismatch", "unverified", "skipped"}
@@ -106,9 +107,11 @@ def _relation_links(meta: dict | None) -> list[dict]:
 
 
 def fetch_all(prepared: Path, plan: dict, manifest: dict, clients) -> None:
+    previous = manifest.get("data", [])
     manifest.update(preregistration=[], code=[], data=[])
     policy = fetch_common.SizePolicy.from_plan(plan.get("size_policy") or {})
     fetched = [_fetch_link(prepared, link, manifest, clients, policy) for link in plan.get("links", [])]
+    extract_downloaded_archives(prepared, manifest, previous, clients.run)
     manifest["links"] = fetched + _relation_links(manifest.get("metadata"))
     out = prepared / "paper" / "links.json"
     out.parent.mkdir(parents=True, exist_ok=True)

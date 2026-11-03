@@ -46,6 +46,11 @@ and these source directories:
   in `files.json`, not downloaded.
 
 Data fetchers cover OSF, Zenodo, NeuroVault and OpenNeuro; code is cloned from GitHub.
+Downloaded data archives are unpacked beside the retained originals using the local-data
+extractor (ZIP, tar variants and Zstandard; `.7z` is recorded as unsupported).
+Unchanged archives reuse their extraction; changed archives replace only their own prior
+output after successful unpacking. Nested archives are listed for review, not recursively
+unpacked. Extraction failures and nested archives require resolution or explicit acceptance.
 Any other data host is recorded as `status: unsupported` with its URL. Retrieve directly
 linked material manually when practical and record where it was saved; otherwise explain
 what is missing. See [manifest.md](references/manifest.md) for field details.

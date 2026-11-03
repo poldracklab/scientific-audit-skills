@@ -45,15 +45,14 @@ def _unpack(archive: Path, dest: Path, run) -> None:
             tar.extractall(dest, filter="data")
 
 
-def _extract(archive: Path, target: Path, run) -> None:
-    partial = target.with_name(f".{target.name}.partial")
-    shutil.rmtree(partial, ignore_errors=True)
-    try:
+def _extract(archive: Path, target: Path, run, *, replace: bool = False) -> None:
+    with tempfile.TemporaryDirectory(dir=target.parent, prefix=f".{target.name}.extract-") as tmp:
+        partial = Path(tmp) / "contents"
         _unpack(archive, partial, run)
-    except Exception:
-        shutil.rmtree(partial, ignore_errors=True)
-        raise
-    partial.rename(target)
+        partial.mkdir(exist_ok=True)
+        if replace and target.exists():
+            shutil.rmtree(target)
+        partial.rename(target)
 
 
 def _extract_entry(prepared: Path, entry: dict, m: dict, run) -> None:

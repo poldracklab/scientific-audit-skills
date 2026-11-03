@@ -41,6 +41,16 @@ Written by `scripts/manifest.py`. Paths use POSIX separators and are relative to
 
 `{source, id, path, status, files, reason, meta}`; each file is `{path, size, sha256 | remote_hash, downloaded: bool}`.
 
+Fetched data records also carry `archives`: entries with `path`, `sha256`, `extracted`
+(`ok`, `failed`, or `skipped`), optional `reason`, and `extracted_to` for an output owned
+by that archive. Archive and output paths are relative to the prepared folder. The hash
+identifies the archive bytes attempted on this run. If an update fails, the previous output
+is retained but marked failed, never reported as current. Nested archives have `path` and
+`nested_archive: true`. Review problems use kind `data_archive` and acceptance key
+`data_archive <path>` for failures, unsupported extraction, or unextracted nested archives.
+The original downloaded archives are retained. Non-archive files (including `.nii.gz`)
+are left intact.
+
 OSF (`source: osf`, `path` `data/osf_<id>`): `meta` says what the id named. A project is `{kind: "project", node_id, title}` and `files` is its whole osfstorage listing; a single linked file is `{kind: "file", node_id, node_url}` (the project that holds it, `https://osf.io/<node_id>`) and `files` is that one file at its path in the project. An id that is a registration is `failed` with reason "https://osf.io/<id> is a registration; set role: prereg"; any other kind is `failed` with reason "osf <kind>, not a project or file"; a failed lookup records the error text and leaves `meta` empty.
 
 OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as metadata only: `files` holds the root-level files (`dataset_description.json`, `participants.tsv`, `README`, `CHANGES`, ...); `meta` is `{scope: "metadata", tag, dataset_doi, name, subjects, modalities, total_files, size}`; the folder holds `dataset.json` (dataset, snapshot, description and summary), `README` and `files.json`, the full snapshot listing `{path, size, directory, annexed, url}`. Imaging files are never downloaded; the README's Data table says `metadata only` in the Reason column. `status` is `ok` when every root-level file downloaded, else `partial`.

@@ -184,6 +184,12 @@ def _local_data(m: dict) -> list[str]:
     return _section("Local data", body, "none")
 
 
+def _downloaded_archives(m: dict) -> list[str]:
+    rows = [[e["path"], e.get("extracted", "not_extracted"), e.get("extracted_to"), e.get("reason")]
+            for source in m.get("data", []) for e in source.get("archives", [])]
+    return _section("Downloaded archives", _table(["Path", "Extracted", "Output", "Reason"], rows), "none")
+
+
 def _unsorted(m: dict) -> list[str]:
     rows = [[u.get("original_path"), u.get("left_at", u.get("moved_to")), u.get("reason")]
             for u in m.get("unsorted") or []]
@@ -223,5 +229,5 @@ def _warnings(m: dict) -> list[str]:
 
 def render_readme(m: dict) -> str:
     parts = [_header(m), _documents(m), _preregistration(m), _code(m), _data(m),
-             _local_data(m), _unsorted(m), _data_collection(m), _prep_review(m), _warnings(m)]
+             _local_data(m), _downloaded_archives(m), _unsorted(m), _data_collection(m), _prep_review(m), _warnings(m)]
     return "\n".join(line for part in parts for line in part).rstrip() + "\n"

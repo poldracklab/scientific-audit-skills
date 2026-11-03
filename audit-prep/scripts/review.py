@@ -58,17 +58,22 @@ def _metadata(m: dict) -> list[Problem]:
     return [Problem("metadata", "metadata crossref", "missing", detail)]
 
 
-def _local_entry(m: dict, e: dict) -> Problem | None:
+def _local_entry(m: dict, e: dict, kind: str = "local_data") -> Problem | None:
     if e.get("nested_archive"):
-        return Problem("local_data", f"local_data {e['path']}", "not_extracted", NESTED)
+        return Problem(kind, f"{kind} {e['path']}", "not_extracted", NESTED)
     if e.get("extracted") not in EXTRACT_PROBLEMS:
         return None
     detail = e.get("reason") or _warning(m, lambda w: w.startswith(e["path"]))
-    return Problem("local_data", f"local_data {e['path']}", e["extracted"], detail)
+    return Problem(kind, f"{kind} {e['path']}", e["extracted"], detail)
 
 
 def _local_data(m: dict) -> list[Problem]:
     return [p for e in m.get("local_data") or [] if (p := _local_entry(m, e))]
+
+
+def _downloaded_archives(m: dict) -> list[Problem]:
+    return [p for source in m.get("data", []) for e in source.get("archives", [])
+            if (p := _local_entry(m, e, "data_archive"))]
 
 
 def _records(m: dict, key: str, kind: str, is_problem, item) -> list[Problem]:
@@ -78,7 +83,7 @@ def _records(m: dict, key: str, kind: str, is_problem, item) -> list[Problem]:
 
 def manifest_problems(m: dict) -> list[Problem]:
     """Every missing or failed prep product, in manifest order."""
-    return (_paper(m) + _conversions(m) + _metadata(m) + _local_data(m)
+    return (_paper(m) + _conversions(m) + _metadata(m) + _local_data(m) + _downloaded_archives(m)
             + _records(m, "preregistration", "preregistration", lambda s: s != "ok",
                        lambda r: f"preregistration {r['source']} {r['id']}")
             + _records(m, "code", "code", lambda s: s in CODE_PROBLEMS, lambda r: f"code {r['url']}")
