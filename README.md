@@ -10,6 +10,7 @@ Adapted from Mike Frank's [claude-skills](https://github.com/mcfrank/claude-skil
 ## Skills
 
 - `adversarial-protocol-review`: adversarial review of an experiment, eval or analysis for what could manufacture its result.
+- `audit-consensus`: reconcile several blinded audits of one paper into a consensus report of confirmed issues, their severity, and whether they change the paper's conclusions.
 - `audit-prep`: prepare paper folders into standardized, read-only audit inputs and create blinded audit runs.
 - `neuroimaging-validity-audit`: self-critical validity audit of published neuroimaging papers.
 - `reproducibility-audit`: computational reproducibility audit of a published paper in R and Quarto.
@@ -26,6 +27,13 @@ evidence, including sources prep could not retrieve. Save it under
 `audit/additional-evidence/`, record source URLs, retrieval dates, local files and dependent
 findings, and preserve the prepared inputs. This measures auditing from common starting
 materials while allowing evidence discovery to contribute to model performance. Model outputs are saved with a coded name so that other models can't identify the model that generated the output; this allows unbiased comparison of different model outputs by a separate model.
+
+Once several models have audited the same paper, `audit-consensus` reconciles their
+reports. It matches claims and findings across audits by meaning. For each finding it
+records whether the audits agree, disagree, or only one of them looked. Where they disagree
+or only one looked, it runs the check itself against the paper's data and code. The result
+answers one question: which issues are confirmed, how severe are they, and does any of them
+change a major conclusion?
 
 ## Installation
 
@@ -58,7 +66,8 @@ Used by `audit-prep`:
 | `rsync` | run creation when an APFS clone is unavailable |
 
 Used by the audits: [R](https://www.r-project.org) and [Quarto](https://quarto.org) to
-render `audit/audit.qmd`. Agents install any R packages an audit needs under `audit/`.
+render `audit/audit.qmd` (and the consensus report, `consensus.qmd`). Agents install any R
+packages an audit needs under `audit/`.
 
 On macOS: `brew install uv node poppler pandoc zstd` and `brew install --cask r quarto`.
 
@@ -179,10 +188,63 @@ Afterwards the launcher writes `run_models.json` and re-renders the report, so t
 run-to-model mapping appears in its appendix. Harness selection and `--interactive` work as
 they do for `new_run.sh`.
 
+**The redaction is permanent.** It rewrites the original transcripts and notes in each
+run's `audit/`. The registry still maps run IDs to models, so the mapping can be restored.
+The prepared inputs (`paper/`, `data/`, `manifest.json`, `README.md`, `run.json`) are never
+modified, so `verify_run.py` still reports the runs as unmodified. Redacting a run twice
+changes nothing.
+
+#### Output
+
+```
+runs/Poldrack_2026/consensus/<consensus_id>/   # <consensus_id> = UTC timestamp + 4 random characters
+  inputs.json       # runs reconciled (with audit.qmd hashes), runs skipped, redaction counts
+  consensus.qmd     consensus.html
+  R/  results/      # the consensus agent's own adjudication analyses and their output
+  run_models.json   # run ID -> model, written by the launcher after the agent finishes
+  agent_log.jsonl   # headless transcript
+```
+
+Each invocation makes a new folder; earlier consensus reports are never overwritten. Run it
+again after more audits finish to get a consensus over the larger set.
+
+#### Reading the report
+
+The report leads with a **Bottom line** that says which major conclusions change, or that
+none do. A finding counts as changing a conclusion **only when it moves that claim's
+consensus verdict to weak or unsupported**. A downgrade such as strong → moderate is
+reported but does not count. Then come these sections:
+
+- **Claims**: one consensus verdict per claim, with each run's own verdict beside it and the
+  reason wherever they differ.
+- **Confirmed issues**, ranked by severity (major / moderate / minor), each naming the runs
+  and finding IDs that raised it.
+- **Disputed and refuted findings**, with the evidence that settled each one and why the
+  audits differed.
+- **Agreed minor issues**, and a short list of anything noticed during adjudication but
+  not checked.
+- An appendix with a **finding cross-walk** (every finding ID from every run mapped to a
+  consensus item), the adjudication analyses, and provenance including the run-to-model
+  mapping.
+
+Each finding gets one status:
+
+| Status | Meaning | What the consensus agent does |
+|---|---|---|
+| Converged | Two or more audits raised it; none tested it and found it clean | Accepts it; spot-checks when the audits disagree on size or severity |
+| Disputed | Raised by at least one audit, and **any** audit tested the same point and found no problem | Re-runs the check and finds out why they differ |
+| Single-audit, untested | Raised by one audit; no other audit looked | Runs the check itself |
+
+Disputed and untested findings end up **confirmed**, **partly confirmed**, or **refuted**.
+Status is never decided by counting audits.
+
+The consensus report does not rate the individual audits, and it does not hunt for new
+issues beyond what the audits raised.
+
 ### Batch processing
 
-Both scripts exit with the agent's status, so they can be looped. In zsh, use `dir`, not
-`path`, as the loop variable:
+All three launchers exit with the agent's status, so they can be looped. In zsh, use `dir`,
+not `path`, as the loop variable:
 
 ```sh
 cd /path/to/autoaudit
@@ -191,145 +253,12 @@ for dir in /path/to/autoaudit/*_20*/; do
 done
 ```
 
-### Isolation
-
-Blinding only holds if the auditor cannot see anything outside its run folder. In
-particular, it must not read:
-
-- `registry.jsonl`, which maps run IDs to models;
-- other runs of the same paper (another model's audit);
-- `prepared/` and the raw folders (harmless for blinding, but outside the common
-  starting materials).
-
-`new_run.sh` only sets the working directory. By default every agent CLI can **read any
-file your user account can read**, so a curious or thorough auditor could `ls ../..` and
-find the registry. The options below are listed from most to least reliable. Whatever you
-choose, test it with a probe before a real audit (see the end of this section).
-
-#### Any harness: container or separate user (most reliable)
-
-Run the agent where the rest of the corpus does not exist. With Docker, mount only the
-run folder plus the agent's credentials:
+To build consensus reports for every audited paper (papers with fewer than two finished
+runs are refused without launching an agent):
 
 ```sh
-run=/path/to/autoaudit/runs/Poldrack_2026/<run_id>
-docker run --rm -it -v "$run":/work -w /work \
-  -e ANTHROPIC_API_KEY \
-  my-audit-image claude -p --model claude-opus-5-5 --permission-mode auto "<prompt>"
+cd /path/to/autoaudit
+for dir in runs/*/; do
+  ~/.claude/skills/audit-consensus/scripts/consensus.sh "$(basename "$dir")" || echo "no consensus: $dir"
+done
 ```
-
-The image needs the agent CLI, uv, R, Quarto and the skills installed. Pass credentials
-as an environment variable (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`) or
-mount the CLI's auth file read-only (for Codex, `~/.codex/auth.json`). Network access stays
-on.
-
-Without containers, run the agent as a separate account (e.g. `auditbot`) that can read
-only the current run. `chmod 700` the corpus and every run folder, `chown -R auditbot` the
-active run, give `auditbot` traverse (`x`) permission on the parent directories, and launch
-with `sudo -u auditbot -H ...`. That account needs its own agent login.
-
-#### Claude Code: settings plus sandbox
-
-Claude Code can enforce this itself, with one session-only settings override passed via
-`--settings` (your `~/.claude/settings.json` is not changed). It needs two layers:
-
-- `blockReadsOutsideWorkingDirectories` / `blockWritesOutsideWorkingDirectories` confine
-  the Read/Edit/Write file tools in every permission mode.
-- The OS sandbox (Seatbelt on macOS, bubblewrap on Linux) confines Bash. Without it,
-  `python -c "open('../../../registry.jsonl')"` slips past the file-tool rules.
-
-```sh
-claude -p --model claude-opus-5-5 --permission-mode auto --settings '{
-  "permissions": {
-    "blockReadsOutsideWorkingDirectories": true,
-    "blockWritesOutsideWorkingDirectories": true
-  },
-  "sandbox": {
-    "enabled": true,
-    "failIfUnavailable": true,
-    "allowUnsandboxedCommands": false,
-    "filesystem": {
-      "denyRead": ["/path/to/autoaudit"],
-      "allowRead": ["/path/to/autoaudit/runs/Poldrack_2026/<run_id>"]
-    },
-    "network": {
-      "allowedDomains": ["cloud.r-project.org", "github.com", "objects.githubusercontent.com",
-                         "osf.io", "api.osf.io", "files.osf.io", "zenodo.org", "doi.org"]
-    }
-  }
-}' "<prompt>"
-```
-
-Notes:
-
-- `failIfUnavailable` makes the run fail instead of silently running unsandboxed.
-  `allowUnsandboxedCommands: false` stops a blocked command from being retried outside the
-  sandbox.
-- The sandbox blocks all network traffic except `allowedDomains`. Extend the list for any
-  journal, data host or package mirror an audit needs, and look in the transcript for
-  blocked fetches. This limits evidence discovery, so it trades breadth for isolation.
-- Version-dependent: these settings require a recent Claude Code (checked against 2.1.317).
-
-#### Codex: a permission profile
-
-`--sandbox workspace-write` (what `new_run.sh` uses) confines **writes only**; Codex can
-still read the whole disk. Reads are confined by a permission profile (beta). Keep it in a
-dedicated `CODEX_HOME` so your normal Codex config is unaffected:
-
-```toml
-# ~/.codex-audit/config.toml
-default_permissions = "workspace-only"
-
-[permissions.workspace-only]
-extends = ":workspace"
-
-[permissions.workspace-only.filesystem]
-":root" = "deny"
-":minimal" = "read"
-":tmpdir" = "deny"
-":slash_tmp" = "deny"
-
-[permissions.workspace-only.network]
-enabled = true
-```
-
-```sh
-cp ~/.codex/auth.json ~/.codex-audit/
-CODEX_HOME=~/.codex-audit codex exec -m gpt-5.5 --skip-git-repo-check --json "<prompt>"
-```
-
-Profiles are **ignored** if `--sandbox` is passed or `sandbox_mode` is set in the config,
-so this command omits `--sandbox`. To use it with `new_run.sh`, the script's Codex line has
-to change accordingly. Because the feature is beta, the probe test matters here.
-
-#### opencode: container or separate user only
-
-opencode has no OS-level sandbox. Its permission rules can deny paths outside the project,
-for one session:
-
-```sh
-OPENCODE_CONFIG_CONTENT='{"permission": {"external_directory": "deny"}}' \
-  opencode run --auto --model openrouter/qwen/qwen3-coder "<prompt>"
-```
-
-(`external_directory` must be `deny`, since `--auto` approves anything set to `ask`.) The
-check is a best-effort parse of tool paths and shell commands. A Python one-liner or a
-generated script bypasses it, so use a container or a separate user for real blinding.
-
-#### Probe test
-
-From a fresh run folder, launch the agent with your isolation setup and ask it to try:
-
-```
-Run each of these and report the output verbatim:
-cat ../../../registry.jsonl
-ls ../..
-python3 -c "print(open('../../../registry.jsonl').read())"
-```
-
-All three should fail. Then delete the probe run and create a fresh one for the real
-audit.
-
-`new_run.sh` creates runs under the corpus. To place them elsewhere (e.g. outside
-Dropbox), call `new_run.py --runs-root` directly. That alone does not provide isolation,
-since the registry stays readable.
