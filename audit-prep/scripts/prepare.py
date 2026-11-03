@@ -33,6 +33,9 @@ from layout import (
 import docs
 
 
+SCRIPTS_DIR = Path(__file__).resolve().parent
+
+
 class PlanError(Exception):
     pass
 
@@ -91,10 +94,20 @@ def print_plan(folder: Path, plan: dict, corpus: Corpus) -> None:
             print(f"FETCH {link['role']} {link.get('class')} {link['canonical']}")
 
 
+def skill_commit(scripts_dir: Path = SCRIPTS_DIR) -> str | None:
+    """Short git commit of the audit-prep checkout, or None when it is not a git checkout."""
+    try:
+        out = subprocess.run(["git", "-C", str(scripts_dir), "rev-parse", "--short", "HEAD"],
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None if out.returncode == 0 else None
+
+
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
-             prep_versions=clients.tool_versions(), warnings=[])
+             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[])
     return m
 
 

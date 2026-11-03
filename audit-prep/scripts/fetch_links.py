@@ -18,6 +18,9 @@ import prereg
 
 # Fetch statuses that leave material on disk (a clone `skipped` because it already exists counts).
 ON_DISK = {"ok", "partial", "hash_mismatch", "unverified", "skipped"}
+# Data fetch statuses that leave nothing on disk, so the record carries no path.
+NOTHING_ON_DISK = {"failed", "listed_only"}
+NON_GITHUB_CODE = "code links are fetched from GitHub only; fetch manually"
 
 
 def _slug(text: str) -> str:
@@ -60,7 +63,7 @@ def _fetch_data(prepared: Path, link: dict, clients, policy) -> dict:
         return _failure(link, "failed", f"no {cls} id in {link['canonical']}")
     rel = f"data/{cls}_{ident}"
     rec = dataclasses.asdict(fetch(ident, prepared / rel))
-    return {**rec, "path": None if rec["status"] == "failed" else rel}
+    return {**rec, "path": None if rec["status"] in NOTHING_ON_DISK else rel}
 
 
 def _dispatch(prepared: Path, link: dict, clients, policy) -> tuple[str, dict]:
@@ -70,7 +73,7 @@ def _dispatch(prepared: Path, link: dict, clients, policy) -> tuple[str, dict]:
     if cls == "github" and role in ("code", "data"):
         return "code", _clone(prepared, link, clients)
     if role == "code":
-        return "code", _failure(link, "skipped", f"no fetcher for {cls}; fetch manually if needed")
+        return "code", _failure(link, "unsupported", NON_GITHUB_CODE)
     return "data", _fetch_data(prepared, link, clients, policy)
 
 

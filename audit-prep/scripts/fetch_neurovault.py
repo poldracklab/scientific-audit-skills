@@ -54,6 +54,12 @@ def fetch_neurovault(collection_id: str, dest: Path, get_json, get_bytes) -> Fet
     except Exception as e:  # any API error is recorded, never raised
         return FetchResult("neurovault", collection_id, str(dest), "failed", [], str(e))
     records = [download_one(f, dest, get_bytes) for f in files]
-    status = "ok" if records or not looped else "failed"
     reason = LOOP_REASON if looped else ""
-    return FetchResult("neurovault", collection_id, str(dest), status, records, reason)
+    return FetchResult("neurovault", collection_id, str(dest), _status(records, looped), records, reason)
+
+
+def _status(records: list[dict], looped: bool) -> str:
+    """failed when a looped listing yielded nothing; partial when any image failed to download."""
+    if not records:
+        return "failed" if looped else "ok"
+    return "ok" if all(r["downloaded"] for r in records) else "partial"

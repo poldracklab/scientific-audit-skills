@@ -98,7 +98,17 @@ def fetch_osf_registration(reg_id: str, dest: Path, get_json, get_bytes) -> dict
         _write_metadata(dest, rec, attrs)
     except Exception as e:  # any API or download error is recorded, never raised
         return {**rec, "reason": str(e)}
-    return {**rec, "status": verification_status([f["verified"] for f in rec["files"]])}
+    status = verification_status([f["verified"] for f in rec["files"]])
+    return {**rec, "status": status, "reason": unverified_reason(attrs, rec["files"]) if status == "unverified" else ""}
+
+
+def unverified_reason(attrs: dict, files: list[dict]) -> str:
+    """Why a registration could not be verified, when its attributes or empty listing say so."""
+    if attrs.get("embargoed"):
+        return "embargoed"
+    if attrs.get("withdrawn"):
+        return "withdrawn"
+    return "" if files else "no files in registration"
 
 
 def verification_status(verified: list[bool | None]) -> str:

@@ -54,9 +54,13 @@ class FetchResult:
 def select_downloads(
     files: list[RemoteFile], policy: SizePolicy, must_have: tuple[str, ...] = ()
 ) -> tuple[list[RemoteFile], str]:
+    """`ok` only when every listed file is selected; `partial` when the policy dropped some;
+    `listed_only` when none is selected."""
     allowed = [f for f in files if policy.allows(f)]
     if sum(f.size for f in allowed) <= policy.max_source_mb * MB:
-        return allowed, "ok"
+        if len(allowed) == len(files):
+            return allowed, "ok"
+        return allowed, "partial" if allowed else "listed_only"
     chosen = [f for f in allowed if any(m in f.path for m in must_have)]
     return (chosen, "partial") if chosen else ([], "listed_only")
 
