@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parent.parent / "audit-prep" / "scripts" / "prep_paper.sh"
-FAKE_CLAUDE = '#!/usr/bin/env bash\npwd -P > "$FAKE_LOG.cwd"\nprintf "%s\\0" "$@" > "$FAKE_LOG"\n'
+FAKE_CLAUDE = """#!/usr/bin/env bash
+pwd -P > "$FAKE_LOG.cwd"
+printf "%s\\0" "$@" > "$FAKE_LOG"
+[ -n "${FAKE_OUTPUT:-}" ] && printf "%b\\n" "$FAKE_OUTPUT"
+exit "${FAKE_STATUS:-0}"
+"""
 
 
 @pytest.fixture
@@ -87,19 +92,69 @@ def test_nested_paper_directory_is_rejected(fake_env, corpus):
     assert not log.exists()
 
 
-def test_launches_claude_with_default_model(fake_env, corpus, tmp_path):
+RESULT_LINE = '{"type":"result","subtype":"success","result":"PREP DONE"}'
+
+
+def prep_logs(corpus):
+    return sorted((corpus / "logs" / "prep").glob("Smith_2021-*.jsonl"))
+
+
+def assert_prep_prompt(prompt, corpus, model):
+    assert "Use the audit-prep skill to prepare Smith_2021" in prompt
+    assert f"corpus root: {corpus}" in prompt
+    assert "structured_conversion: true" in prompt
+    assert f"reviewed_by: {model}" in prompt
+    assert "Finalize if review is clean" in prompt
+
+
+def test_headless_is_the_default(fake_env, corpus):
     env, log = fake_env
+    env["FAKE_OUTPUT"] = RESULT_LINE
     result = run_script(env, "Smith_2021", cwd=corpus)
+    assert result.returncode == 0, result.stderr
+    args, cwd = claude_call(log)
+    assert cwd == corpus
+    assert "-p" in args and "--verbose" in args
+    assert args[args.index("--model") + 1] == "claude-opus-5-5"
+    assert args[args.index("--permission-mode") + 1] == "auto"
+    assert args[args.index("--output-format") + 1] == "stream-json"
+    assert_prep_prompt(args[-1], corpus, "claude-opus-5-5")
+
+
+def test_headless_writes_transcript_log(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_OUTPUT"] = RESULT_LINE
+    result = run_script(env, corpus / "Smith_2021")
+    assert result.returncode == 0, result.stderr
+    [transcript] = prep_logs(corpus)
+    assert transcript.read_text().strip() == RESULT_LINE
+    assert str(transcript) in result.stdout
+
+
+def test_headless_prints_final_result(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_OUTPUT"] = '{"type":"system"}\n' + RESULT_LINE
+    result = run_script(env, corpus / "Smith_2021")
+    assert "PREP DONE" in result.stdout
+
+
+def test_headless_propagates_agent_failure(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_STATUS"] = "3"
+    result = run_script(env, corpus / "Smith_2021")
+    assert result.returncode == 3
+    assert len(prep_logs(corpus)) == 1
+
+
+def test_interactive_flag_launches_session(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, "--interactive", "Smith_2021", cwd=corpus)
     assert result.returncode == 0, result.stderr
     args, cwd = claude_call(log)
     assert args[:2] == ["--model", "claude-opus-5-5"] and len(args) == 3
     assert cwd == corpus
-    prompt = args[2]
-    assert "Use the audit-prep skill to prepare Smith_2021" in prompt
-    assert f"corpus root: {corpus}" in prompt
-    assert "structured_conversion: true" in prompt
-    assert "reviewed_by: claude-opus-5-5" in prompt
-    assert "Finalize if review is clean" in prompt
+    assert_prep_prompt(args[2], corpus, "claude-opus-5-5")
+    assert prep_logs(corpus) == []
 
 
 def test_model_can_be_overridden(fake_env, corpus):
@@ -107,5 +162,5 @@ def test_model_can_be_overridden(fake_env, corpus):
     result = run_script(env, corpus / "Smith_2021", "claude-sonnet-5-5")
     assert result.returncode == 0, result.stderr
     args, _ = claude_call(log)
-    assert args[:2] == ["--model", "claude-sonnet-5-5"]
-    assert "reviewed_by: claude-sonnet-5-5" in args[2]
+    assert args[args.index("--model") + 1] == "claude-sonnet-5-5"
+    assert "reviewed_by: claude-sonnet-5-5" in args[-1]
