@@ -257,3 +257,132 @@ def neurovault_api():
         return _load_fixture(NV_ROUTES[url])
 
     return get_json
+
+
+# --- shared prepared-corpus fixtures ---
+import os
+import subprocess
+from types import SimpleNamespace
+
+from corpus import init_root
+from prepare import Clients, finalize, run_prep, scan_folder
+from scan import load_plan, write_plan
+
+CROSSREF = "https://api.crossref.org/works/10.1126/sciadv.abf4355"
+ZENODO = "https://zenodo.org/api/records/123456"
+REAL_TOOLS = {"pdftotext", "pdftoppm", "git", "tar", "zstd"}
+ROLES = {
+    "https://osf.io/abcde": "data",
+    "https://osf.io/x4c56": "prereg",
+    "https://github.com/lab/hidden-tool": "skip",
+}
+
+
+def _router(osf_api, crossref_fixture, zenodo_fixture):
+    routes = {CROSSREF: crossref_fixture, ZENODO: zenodo_fixture}
+
+    def get_json(url):
+        return routes[url] if url in routes else osf_api(url)
+
+    return get_json
+
+
+def _fake_run(cmd, *args, **kwargs):
+    if cmd[0] in REAL_TOOLS:
+        return subprocess.run(cmd, *args, **kwargs)
+    return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=f"{cmd[0]} disabled in tests")
+
+
+@pytest.fixture
+def clients(osf_api, crossref_fixture, zenodo_fixture):
+    return Clients(
+        get_json=_router(osf_api, crossref_fixture, zenodo_fixture),
+        get_bytes=lambda url: b"prereg-bytes",
+        post_json=lambda url, payload: {},
+        run=_fake_run,
+        tool_versions=lambda: {},
+    )
+
+
+@pytest.fixture
+def make_prepped(tmp_path, raw_folder, clients):
+    def make(shape):
+        corpus = init_root(tmp_path / "corpus")
+        raw = Path(shutil.move(raw_folder(shape), corpus.root / "Paper_2024"))
+        scan_folder(raw, clients.get_json)
+        return SimpleNamespace(raw=raw, corpus=corpus, clients=clients)
+
+    return make
+
+
+def review_plan(prepped, bare_repo):
+    plan_path = prepped.raw / "prep.yaml"
+    plan = load_plan(plan_path)
+    plan["reviewed_by"] = "human"
+    for item in plan["files"] + plan["links"]:
+        item["needs_review"] = False
+    for link in plan["links"]:
+        link["role"] = ROLES.get(link["canonical"], link["role"])
+        if link["canonical"] == "https://github.com/lab/repo":
+            link["url"] = str(bare_repo)
+    write_plan(plan, plan_path)
+    return prepped
+
+
+@pytest.fixture
+def prepped_raw(make_prepped):
+    return make_prepped("paper_supp")
+
+
+@pytest.fixture
+def reviewed_raw(make_prepped, bare_repo):
+    return review_plan(make_prepped("paper_supp"), bare_repo)
+
+
+@pytest.fixture
+def reviewed_residue(make_prepped, bare_repo):
+    return review_plan(make_prepped("paper_residue"), bare_repo)
+
+
+@pytest.fixture
+def reviewed_data_archive(make_prepped, bare_repo):
+    return review_plan(make_prepped("paper_data_archive"), bare_repo)
+
+
+@pytest.fixture
+def writable_after():
+    roots = []
+    yield roots.append
+    for root in roots:
+        for dirpath, _, files in os.walk(root):
+            os.chmod(dirpath, 0o755)
+            for name in files:
+                target = Path(dirpath) / name
+                if not target.is_symlink():
+                    os.chmod(target, 0o644)
+
+
+
+
+@pytest.fixture
+def corpus_with_unfinalized(reviewed_raw):
+    run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
+    return reviewed_raw.corpus
+
+
+@pytest.fixture
+def prepared_corpus(reviewed_raw, writable_after):
+    run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
+    prepared = reviewed_raw.corpus.prepared_dir("Paper_2024")
+    writable_after(prepared)
+    finalize(prepared)
+    return reviewed_raw.corpus
+
+
+@pytest.fixture
+def run_folder(prepared_corpus):
+    import random
+
+    from new_run import new_run
+
+    return new_run(prepared_corpus, "Paper_2024", "model-x", rng=random.Random(1))
