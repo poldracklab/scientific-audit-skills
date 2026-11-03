@@ -395,3 +395,65 @@ passing after the template path changes.
   prep but warn, and the manifest records `prepared_by`.
 - Nothing inside a run folder names the model: not paths, not filenames, not
   the report disclaimer. Only `registry.jsonl` does.
+
+## Addendum 2026-11-03 (user request after the branch review)
+
+### OpenNeuro metadata fetcher (reinstated, metadata only)
+
+Papers whose data live on OpenNeuro get a `data/openneuro_<dsid>/` folder with
+the dataset's metadata, never its imaging files (the neuroimaging audit works
+from documents and derivatives; a full BIDS download is an escalation the
+auditor proposes). The fetcher uses the OpenNeuro GraphQL API
+(`https://openneuro.org/crn/graphql`, `post_json`):
+
+- `dataset(id)` for `name`, `created`, `public` and `latestSnapshot.tag` when
+  the link names no version; `snapshot(datasetId, tag)` for `description`
+  (BIDS `dataset_description.json` fields incl. `DatasetDOI`), `summary`
+  (`modalities`, `subjects`, `sessions`, `tasks`, `size`, `totalFiles`,
+  `dataProcessed`), `readme`, `hexsha`, and `files(recursive: true)`
+  (`filename`, `size`, `directory`, `annexed`, `urls`).
+- Writes `dataset.json` (the metadata above plus `scope: "metadata"`),
+  `README` (when present) and `files.json` (the full recursive listing with
+  `:` path separators normalised to `/`), then downloads only the root-level
+  files (`dataset_description.json`, `participants.tsv`, `CHANGES`, task JSON
+  sidecars, …) that pass the size policy, from `urls[0]` or
+  `https://openneuro.org/crn/datasets/<ds>/snapshots/<tag>/files/<name>`.
+- Status `ok` when every root-level file downloaded, `partial` when any was
+  dropped or failed, `failed` on an API error. `meta` carries `scope`,
+  `tag`, `dataset_doi`, `name`, `subjects` (count), `modalities`,
+  `total_files`, `size`.
+- Link forms: `openneuro.org/datasets/ds000001[/versions/1.0.0]` and the DOI
+  `10.18112/openneuro.ds000001.v1.0.0`. The `openneuro` link class already
+  exists; it stops ending `unsupported`.
+
+### Failure gate: prep fails loudly
+
+Prep must not "pass" with material missing. After the last step of `run`,
+and again in `finalize`, the manifest is reviewed. Each of these is a
+*problem*: no paper document; any document conversion `failed`; Crossref
+metadata missing; a local archive whose extraction is `failed` or `skipped`;
+a preregistration whose status is not `ok`; a code record `failed` or
+`unsupported`; a data record whose status is not `ok` (`partial`,
+`listed_only`, `failed`, `unsupported`).
+
+- `run` completes every step it can (problems are collected, not raised
+  mid-way), records `review: {status, problems, accepted, unused}` in the
+  manifest, prints the open problems with the exact acknowledgement keys, and
+  exits 1 when any problem is open. Exit 0 means prep is complete.
+- `finalize` recomputes the review from the manifest and `prep.yaml` and
+  refuses (exit 1, same printout) while a problem is open. A finalized folder
+  therefore has `review.status == "ok"`.
+- `prep.py review <folder>` prints the review without changing anything.
+- Acknowledgement is explicit and per item: `prep.yaml` gains a top-level
+  `accept_failures: {"<problem item>": "<reason>"}` mapping. The item key is
+  the string the review prints (for example `data osf abcde`,
+  `conversion paper/paper.pdf structured`, `preregistration osf x4c56`); the
+  reason must say what the auditor will be missing. Accepted problems move to
+  `review.accepted` and are rendered in `README.md` under "Prep review" so
+  every auditing model sees the same declared gaps. A key that matches no
+  problem is listed under `review.unused`. Acceptance is for problems that
+  cannot be fixed (embargoed registration, dataset far over the size policy,
+  a host with no fetcher whose files were placed by hand under
+  `data/<name>/`), never a way to make the run pass.
+- The audit skills' Intake step reads the "Prep review" section and names
+  each accepted gap in the report.
