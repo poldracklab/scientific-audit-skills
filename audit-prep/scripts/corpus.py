@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT_MARKER = ".autoaudit-root"
-DENY_RULE = "Read(./registry.jsonl)"
+# "/path" is anchored to the settings file's project root, so the rule holds after `cd runs/<P>/<id>`.
+DENY_RULE = "Read(/registry.jsonl)"
 NO_ROOT_MSG = (
     "no corpus root found (missing {marker}); "
     "create one with: uv run prep.py init <dir>"

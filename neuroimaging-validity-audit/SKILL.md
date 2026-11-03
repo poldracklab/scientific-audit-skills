@@ -12,6 +12,8 @@ pass is bounded by the checks actually possible.
 
 ## Intake
 
+Start the audit session with the corpus root as the working directory so `.claude/settings.json` applies; then `cd` into the run folder. Claude Code loads project settings only from the session's starting directory; its deny rule `Read(/registry.jsonl)` is anchored there and still applies after the `cd`.
+
 1. Run `uv run ~/.claude/skills/audit-prep/scripts/verify_run.py <folder>` on the folder you were given.
 2. `not_prepared` → invoke the `audit-prep` skill on it (scan, review `prep.yaml`, run, finalize), then re-run `verify_run.py` on `prepared/<Paper_Year>` and continue at step 3. Warn the user that prepping from inside an audit makes prep model-dependent; the manifest records `prepared_by`.
 3. `prepared_not_run` → run `uv run ~/.claude/skills/audit-prep/scripts/new_run.py <Paper_Year> --model <your model name> --root <corpus root>` (the name is recorded only in `registry.jsonl`, outside the run; never write it anywhere else), `cd` into the printed path, continue.

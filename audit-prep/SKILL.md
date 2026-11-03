@@ -177,6 +177,9 @@ make a new run.
 
 Blinding rules:
 
+- Start the audit session with the corpus root as the working directory so `.claude/settings.json` applies; then `cd` into the run folder. `prep.py init` writes the deny rule `Read(/registry.jsonl)` into the corpus root's
+  `.claude/settings.json`; Claude Code loads project settings only from the session's starting
+  directory, and the leading `/` anchors the rule there, so it still applies after the `cd`.
 - Never read `registry.jsonl`, and never look in another run folder.
 - Nothing inside a run folder may name the *auditing* model: not file names, not paths, not
   report text. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every
