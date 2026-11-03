@@ -44,3 +44,31 @@ def fixture_pdf(tmp_path_factory):
     out = tmp_path_factory.mktemp("pdf") / "paper.pdf"
     doc.save(out)
     return out
+
+
+@pytest.fixture(scope="session")
+def fixture_docx(tmp_path_factory):
+    import docx
+
+    doc = docx.Document()
+    doc.add_heading("Supplementary Methods", level=1)
+    doc.add_paragraph("We describe the methods in detail here.")
+    out = tmp_path_factory.mktemp("docx") / "supp.docx"
+    doc.save(out)
+    return out
+
+
+@pytest.fixture(scope="session")
+def fixture_xlsx(tmp_path_factory):
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    wb.active.title = "Table S1"
+    wb.active.append([1, 2])
+    wb.active.append([3, 4])
+    ws = wb.create_sheet("Table S2")
+    ws.append([5, 6])
+    ws.append([7, 8])
+    out = tmp_path_factory.mktemp("xlsx") / "supp.xlsx"
+    wb.save(out)
+    return out
