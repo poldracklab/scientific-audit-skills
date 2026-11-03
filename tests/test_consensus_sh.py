@@ -220,3 +220,12 @@ def test_prompt_forbids_other_consensus_folders(fake_env, corpus):
     assert run_script(env, corpus, "P").returncode == 0
     _, args, _ = agent_call(log)
     assert "Never read other folders under ../" in args[-1]
+
+
+@pytest.mark.parametrize("extra", [[], ["--interactive"]])
+def test_prompt_not_absorbed_by_variadic_add_dir(fake_env, corpus, extra):
+    # claude's --add-dir is variadic, so the prompt must follow an end-of-options "--".
+    env, log = fake_env
+    assert run_script(env, corpus, *extra, "P").returncode == 0
+    _, args, _ = agent_call(log)
+    assert args[-2] == "--" and "Use the audit-consensus skill" in args[-1]
