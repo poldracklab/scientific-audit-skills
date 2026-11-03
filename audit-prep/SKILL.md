@@ -1,246 +1,170 @@
 ---
 name: audit-prep
 description: >
-  Prepare paper folders for a reproducibility or neuroimaging validity audit: turn a loose
-  folder of PDFs, supplements, data dumps and residue into a standardized, read-only prepared
-  folder (paper and supplements converted to text, Markdown, page images, figures and tables;
-  preregistrations fetched with dates; code cloned at a pinned commit; data downloaded or
-  inventoried; everything recorded in manifest.json), then set up blinded, isolated audit runs
-  for model comparisons. Use whenever the user asks to "prepare papers for audit", "organize
-  paper folders", "set up an audit corpus", prep one or many papers, or create or verify an
-  audit run. reproducibility-audit and neuroimaging-validity-audit invoke it when they meet an
-  unprepared folder.
+  Use when preparing paper folders for reproducibility or neuroimaging validity audits,
+  organizing an audit corpus, reviewing a prep plan, or creating and verifying isolated
+  audit runs before model evaluation.
 ---
 
 # Audit prep
 
-Purpose: every audit model gets exactly the same material, already retrieved and already
-converted, in its own pristine copy, under a run ID that does not name the model. Differences
-between audits by different models then reflect the models, not what each could fetch or how
-well it parsed a PDF. Your judgment is confined to reviewing one YAML plan per paper.
+Prepare common starting materials once: the publication, supplements, and its directly
+linked data, code and preregistrations. Convert documents, record provenance and retrieval
+gaps, then freeze a snapshot for every model. Discovery of additional relevant evidence
+belongs to auditing and is part of the evaluated capability.
 
-**Prep once, up front.** Prep is meant to be done once, by the user with a model of their
-choosing, before any comparison runs. An audit skill that preps a folder on the fly makes prep
-model-dependent; the manifest records who did it as `prepared_by`. Tell the user if you do.
+The operator completes preparation and run creation before the evaluated session. The
+preparer may be a model or a human; record that identity as `prepared_by`. Auditors do not
+prepare their own inputs or register their own model identity.
 
 ## Layout
 
-Corpus root (created by `init`):
-
 ```
 <corpus>/
-  <Paper_Year>/               # raw input folders; run moves them into prepared/
-  prepared/<Paper_Year>/      # prep output; read-only once finalized
-  runs/<Paper_Year>/<run_id>/ # one clone per audit run; the audit model's cwd
-  unsorted/<Paper_Year>/      # material prep could not classify, moved aside, never deleted
-  registry.jsonl              # run_id -> model mapping; never read it
-  .autoaudit-root             # marker; scripts refuse to write without it
-  .claude/settings.json       # deny rule on reading registry.jsonl
+  .autoaudit-root
+  <Paper_Year>/               # raw inputs and initial prep.yaml; retained in place
+  prepared/<Paper_Year>/      # working draft; read-only snapshot after finalize
+  runs/<Paper_Year>/<run_id>/  # isolated copy with audit/ for all audit output
+  registry.jsonl              # operator-only run ID -> model mapping
 ```
 
-Prepared paper folder:
+Raw folders stay in place. Only selected paper, supplement, data and archive entries are
+copied into the draft. Files marked `skip` and `unsorted` remain in the raw folder and are
+excluded from prepared inputs and audit runs. Never delete supplied material.
 
-```
-prepared/<Paper_Year>/
-  manifest.json  README.md  prep.yaml
-  paper/
-    paper.pdf  paper.txt  paper.md          # pdftotext -layout; docling Markdown
-    pages/p-001.png ...                     # every page
-    figures/fig-01.png ... figures.md       # crops plus caption index
-    tables/table-01.csv ... tables.md
-    metadata.json  links.json  statements.md
-    supplement_1.pdf  supplement_1.txt  supplement_1.md  supplement_1/
-    supplement_2.docx supplement_2.md       # pandoc; media in supplement_2/media/
-    supplement_3.xlsx supplement_3/<sheet>.csv
-  preregistration/
-    osf_<regid>/  aspredicted_<id>/  clinicaltrials_<nct>/  prospero_<id>/
-  github/<owner>__<repo>/                   # full clone, .git kept, commit in manifest
-  data/
-    <original_dir_name>/                    # local data directories as supplied
-    osf_<nodeid>/  zenodo_<recordid>/  neurovault_<collectionid>/
-    openneuro_<dsid>/   # metadata only: dataset.json, README, files.json, root-level BIDS files
-```
+A prepared folder contains `manifest.json`, generated `README.md`, the reviewed `prep.yaml`,
+and these source directories:
 
-Data fetchers exist for OSF, Zenodo, NeuroVault and OpenNeuro (metadata and root-level files
-only; imaging files are listed in `files.json`, never downloaded); code is cloned from GitHub.
-Any other data host (figshare, Dryad, bare DOIs, other) is recorded in the manifest as
-`status: unsupported` with its URL, so the auditor sees it. Field-level detail:
-`references/manifest.md`.
+- `paper/`: `paper.pdf`, `paper.txt`, page images in `pages/`, metadata, links and statements;
+  supplements named `supplement_<order>`. Structured conversion adds Markdown, `figures/`
+  and `tables/`. DOCX supplements become Markdown; XLSX sheets become CSVs.
+- `preregistration/<source>_<id>/`: registration files, metadata and dates.
+- `github/<owner>__<repo>/`: code with its `.git` history and recorded commit.
+- `data/<original_name>/`: supplied data and archives; fetched sources use
+  `osf_<id>/`, `zenodo_<id>/`, `neurovault_<id>/`, or `openneuro_<dsid>/`.
+  OpenNeuro supplies metadata and root-level BIDS files, with imaging files inventoried
+  in `files.json`, not downloaded.
+
+Data fetchers cover OSF, Zenodo, NeuroVault and OpenNeuro; code is cloned from GitHub.
+Any other data host is recorded as `status: unsupported` with its URL. Retrieve directly
+linked material manually when practical and record where it was saved; otherwise explain
+what is missing. See [manifest.md](references/manifest.md) for field details.
 
 ## Workflow
 
-Use absolute paths throughout (see Gotchas). Set up the corpus once:
+Use absolute paths. In the commands below, replace `<audit-prep>` with this skill's installed
+directory; the commands do not assume Claude Code or any particular installation path.
 
-```zsh
-uv run ~/.claude/skills/audit-prep/scripts/prep.py init /abs/corpus
+```sh
+uv run <audit-prep>/scripts/prep.py init /abs/corpus
+uv run <audit-prep>/scripts/prep.py scan /abs/corpus/Smith_2021
 ```
 
-Put each raw paper folder (`Lastname_Year`, as is; prep does not rename) directly under the
-corpus root. Then, per paper:
+`scan` writes `prep.yaml` and `statements.md` in the raw folder. If it finds no paper, set the
+paper role manually. `run` derives its own statements from the selected paper; it never copies
+the raw statements file. Do not re-scan a reviewed plan: scan
+overwrites it. Review the plan using the rules below, then:
 
-1. **Scan.** Writes `<raw>/prep.yaml` and `<raw>/statements.md` and prints both. If it finds
-   no paper candidate, `statements.md` is not written: set a `paper` role by hand in
-   `prep.yaml`; `run` generates `paper/statements.md` later.
-
-   ```zsh
-   uv run ~/.claude/skills/audit-prep/scripts/prep.py scan /abs/corpus/Smith_2021
-   ```
-
-2. **Review `prep.yaml`** by the rules below and `references/prep-yaml.md`.
-3. **Dry run.** Prints every move, conversion and fetch, changes nothing. Exit 2 with a list of
-   blockers means the review is unfinished: fix each listed item in `<raw>/prep.yaml`, then
-   repeat the dry run.
-
-   ```zsh
-   uv run ~/.claude/skills/audit-prep/scripts/prep.py run /abs/corpus/Smith_2021 --dry-run
-   ```
-
-4. **Run.** Moves the folder to `prepared/Smith_2021/`, lays out `paper/`, `data/`, `github/`,
-   `preregistration/`, moves unclassified items to `unsorted/Smith_2021/`, converts documents,
-   fetches Crossref metadata, preregistrations, code and data, and writes `manifest.json` after
-   each step. It is resumable: if interrupted or a fetch fails, rerun the same command (the raw
-   path is fine; it finds the moved folder).
-
-   ```zsh
-   uv run ~/.claude/skills/audit-prep/scripts/prep.py run /abs/corpus/Smith_2021
-   ```
-
-   After the last step `run` reviews the manifest. A *problem* is anything prep was supposed
-   to produce and did not: no paper document; a document conversion `failed`; Crossref
-   metadata missing; a local archive whose extraction `failed` or was `skipped`, or a nested
-   archive (listed, never extracted); a prereg/code/data link in `prep.yaml` with no fetch
-   record (added after `run`); a preregistration not `ok`; a code record `failed` or `unsupported`; a data record not `ok`
-   (`partial`, `listed_only`, `failed`, `unsupported`). While any problem is open, `run`
-   exits 1 and prints each one with the exact key to paste. Fix and rerun first (a missed
-   link: edit `prepared/Smith_2021/prep.yaml`, rerun). Only a problem that cannot be fixed
-   goes under `accept_failures` in `prepared/Smith_2021/prep.yaml`, with a reason saying what
-   the auditor will be missing. Never accept a failure to make the run pass: the aim is
-   identical material for every model.
-5. **Finalize.** Hashes the tree, writes `README.md`, marks `finalized`, makes the tree
-   read-only. After this the folder is "prepared". Finalize refuses (exit 1) while a problem
-   is open; the review is written into `manifest.json` and `README.md`.
-
-   ```zsh
-   uv run ~/.claude/skills/audit-prep/scripts/prep.py finalize /abs/corpus/prepared/Smith_2021
-   ```
-
-   To print the open and accepted problems without changing anything (exit 0 ok, 1 open
-   problems, 2 plan or corpus error):
-
-   ```zsh
-   uv run ~/.claude/skills/audit-prep/scripts/prep.py review /abs/corpus/prepared/Smith_2021
-   ```
-
-   An interrupted `run` leaves `review: null`; `finalize` and `review` report `run: incomplete`
-   until `run` is rerun to completion.
-
-For many papers, scan them all, review each plan, then run and finalize each. In zsh loops use
-a variable such as `dir`, never `path`:
-
-```zsh
-for dir in /abs/corpus/*_<->*(/); do
-  uv run ~/.claude/skills/audit-prep/scripts/prep.py scan "$dir"
-done
+```sh
+uv run <audit-prep>/scripts/prep.py run /abs/corpus/Smith_2021 --dry-run
+uv run <audit-prep>/scripts/prep.py run /abs/corpus/Smith_2021
 ```
 
-`prep.py scan`, `run`, `review`, `finalize` and `new_run.py` accept `--root /abs/corpus`;
-`verify_run.py` and `prep.py init` take only their positional argument. Without `--root` they use the nearest ancestor holding
-`.autoaudit-root` and stop with a message naming `init` if there is none.
+Dry run prints copies, conversions and fetches without changing files. Exit 2 lists plan
+blockers. `run` copies selected inputs into `prepared/Smith_2021/`, converts documents,
+fetches the reviewed links and metadata, and records progress in `manifest.json`.
+
+Once the draft exists, its `prepared/Smith_2021/prep.yaml` is authoritative. Rerun using either
+the raw or prepared path to resume; add missed links or edit `accept_failures` in the draft plan.
+Previously requested retrieval sources cannot be removed or changed in that draft, because
+their downloaded files would otherwise remain as stale evidence. Such changes require a
+fresh draft. Retrying the same sources and adding new ones remain supported.
+Local file selection, raw contents and the structured-conversion choice are fixed for that draft. To change them, the operator
+moves the draft aside, updates the raw plan and starts a fresh draft; prep never silently
+deletes old work. Selected inputs containing symbolic links are rejected, as are symbolic
+links found before finalization. Materialize needed targets as ordinary files first.
+
+`run` exits 1 while prep products are missing or failed. Fix and rerun first. If a gap cannot
+be fixed, acknowledge the printed item under `accept_failures`, with a reason explaining
+what the auditor will lack. This records an evidence limitation, not permission to waive an
+incomplete run or a changed plan. Crossref metadata and requested conversions are checked,
+as are data, code, registrations, archive extraction and links added after a run.
+
+```sh
+uv run <audit-prep>/scripts/prep.py review /abs/corpus/prepared/Smith_2021
+uv run <audit-prep>/scripts/prep.py finalize /abs/corpus/prepared/Smith_2021
+```
+
+`review` is read-only: exit 0 ok, 1 open problems, 2 plan or corpus error. An interrupted `run`
+leaves `review: null`; review and finalize report `run: incomplete` until run completes.
+Finalize refuses open problems, hashes the tree, generates the README, marks `finalized`
+and removes write permission. A finalized folder cannot be resumed with `run`.
+
+`scan`, `run`, `review`, `finalize` and `new_run.py` accept `--root /abs/corpus`; otherwise
+scripts find the nearest `.autoaudit-root`. `verify_run.py` takes only the folder argument.
 
 ## Review rules for `prep.yaml`
 
-Read `statements.md` and the paper text before editing. Then:
+Read the paper text and `statements.md`; the scanner's decisions are suggestions.
+See [prep-yaml.md](references/prep-yaml.md) for the schema and detailed examples.
 
-- Settle every `needs_review: true`: choose the role, set it `false`, and rewrite `reason` as a
-  one-line justification citing the page or statement.
-- **Never delete a line.** Anything that should not be moved or fetched gets `role: skip` with
-  a one-line reason.
-- OSF links: "preregistered at" means `prereg`; "data/materials/code available at" means `data`.
-- OSF file links come with a derived parent-project link (`needs_review: true`): fetch the
-  whole project only if the auditor needs more than the linked files; then set the file links
-  to `skip`, reason `contained in osf_<node id>`; otherwise set the parent to `skip`.
-- GitHub links: the authors' analysis code is `code`; a cited tool or someone else's package
-  is `skip`, reason "cited tool". Article DOIs (citations, preprints) are `skip`.
-- Confirm the `paper` file, and confirm `doi` is the article's own DOI, not a deposit DOI
-  (Zenodo, OSF, figshare, Dryad, OpenNeuro); set it to the article DOI or `null`.
-- Fix supplement `order` to match the paper's numbering; decide `data` versus `unsorted` for
-  unrecognized items. Add links the scanner missed, with `found_in` and a reason.
-- Fill `data_collection` (start, end, verbatim `source_quote`, `page`) from the methods, or
-  leave it null if the paper does not say.
-- Fill `reviewed_by` last: your model name, or `human` if the user reviewed it.
-- `accept_failures` (top level, after `run`): only for a problem `review` prints that cannot
-  be fixed (embargoed registration, a dataset far over the size policy, a host with no fetcher
-  whose files you placed by hand under `data/<name>/`). The key is the printed item string;
-  the reason must be non-empty and say what the auditor will be missing. Accepted gaps appear
-  under "Prep review" in `README.md` for every auditor.
+- Resolve every `needs_review: true`, set it to `false`, and cite the page or statement
+  supporting the role in `reason`. **Never delete a line**; exclude an item with `role: skip`.
+- Confirm the `paper` file, and confirm `doi` is the article's own DOI, not a deposit DOI.
+  Set the article DOI or `null`; number supplements in the paper's order.
+- Fetch directly linked study data, code and preregistrations. Distinguish an OSF project
+  from a registration using the surrounding statement. For linked OSF files and a derived
+  parent-project link, choose either the needed files or the whole project, skipping the
+  redundant links with a reason.
+- GitHub analysis code is `code`; a cited package is `skip`. Other articles and cited tools
+  are not prep inputs. Add missed study-artifact links with `found_in` and a reason.
+- Choose `structured_conversion` once for the corpus: `true` (default) produces PDF
+  Markdown, figure crops and tables with Docling; `false` omits that optional conversion
+  with status `not_requested`. Text and page images remain available. Use the same choice
+  for all models' starting materials, rather than accepting repeated conversion failures.
+- Fill data-collection dates and their verbatim source quote/page when available, and set
+  `reviewed_by` last to the preparer's model name or `human`.
+- `accept_failures` requires a non-empty reason, not the printed placeholder. The keys
+  `run` and `plan` cannot be accepted. Accepted evidence gaps appear in the README's
+  "Prep review" section for every auditor.
 
-`run` refuses while `reviewed_by` is empty, any `needs_review` remains, there is not exactly one
-`paper`, a role or class is not a known value, supplement `order`s are not distinct integers,
-a listed path does not exist, or an `accept_failures` entry has no reason;
-fix each listed item in `<raw>/prep.yaml`, then repeat the dry run.
+## Operator: create audit runs
 
-## Runs
+After finalizing, create each run outside the evaluated audit session:
 
-An audit never works in `prepared/`. Each audit attempt gets its own blinded copy:
-
-```zsh
-cd /abs/corpus
-uv run ~/.claude/skills/audit-prep/scripts/new_run.py Smith_2021 --model <model-name>
+```sh
+uv run <audit-prep>/scripts/new_run.py Smith_2021 --model <model-name> --root /abs/corpus
+uv run <audit-prep>/scripts/verify_run.py /abs/corpus/runs/Smith_2021/<run_id>
 ```
 
-(or pass `--root /abs/corpus` from elsewhere; `--runs-root /abs/dir` puts runs outside
-Dropbox). It clones the prepared folder to `runs/Smith_2021/<run_id>/` (APFS clone, rsync
-fallback), restores write permission, creates `audit/`, writes `run.json` (no model name), sets
-the Dropbox-ignore attribute, appends the model mapping to `registry.jsonl`, and prints the run
-path. `cd` into that printed path. Check a folder before auditing it:
+Run creation copies the snapshot under a random ID, restores write permission, creates
+`audit/`, pins the manifest and README in `run.json`, and records the model mapping in
+`registry.jsonl` outside the run. APFS clone is attempted first, then rsync. `--runs-root`
+can place runs outside the corpus or Dropbox; the Dropbox-ignore attribute is best-effort.
 
-```zsh
-uv run ~/.claude/skills/audit-prep/scripts/verify_run.py /abs/corpus/runs/Smith_2021/<run_id>
-```
+The operator launches the auditor with only its run folder as the accessible workspace.
+Keep `registry.jsonl` and other runs inaccessible using the execution environment's access
+controls; a working directory alone is not isolation. The auditing model never supplies or
+writes its own identity. Graders unblind using the operator's registry after scoring.
 
-It prints one of `not_prepared`, `prepared_not_run`, `run_ok`, `run_dirty`, `run_modified`,
-then details; exit 0 only for `run_ok`. `run_modified`: a manifest-listed file, or `manifest.json`/`README.md` themselves, changed or is
-missing.
-`run_dirty`: a file outside `audit/` that is not in the manifest (Finder and Dropbox metadata such as `.DS_Store` are ignored). Either way, do not audit it;
-make a new run.
+Only `run_ok` permits auditing. `not_prepared` and `prepared_not_run` require operator setup;
+`run_dirty` or `run_modified` require a fresh run. Verification checks snapshot files and
+allows changes only under `audit/` (Finder and Dropbox metadata are ignored).
 
-Blinding rules:
+Auditors may retrieve additional evidence, including retrying failed prep sources, under
+`audit/additional-evidence/`. Reports distinguish supplied and discovered evidence and
+record source URLs, retrieval dates, local files and dependent findings. Keep prepared
+inputs unchanged. All audit reports, caches, working copies and environments go in `audit/`;
+verification therefore allows an interrupted audit to resume in the same run.
 
-- Start the audit session with the corpus root as the working directory so `.claude/settings.json` applies; then `cd` into the run folder. `prep.py init` writes the deny rule `Read(/registry.jsonl)` into the corpus root's
-  `.claude/settings.json`; Claude Code loads project settings only from the session's starting
-  directory, and the leading `/` anchors the rule there, so it still applies after the `cd`.
-- Never read `registry.jsonl`, and never look in another run folder.
-- Nothing inside a run folder may name the *auditing* model: not file names, not paths, not
-  report text. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every
-  run of a paper alike and does not identify the auditor; the audit's model identity lives only
-  in `registry.jsonl`.
-- All audit output goes under `audit/` in the run. `verify_run.py` ignores `audit/`, so an
-  interrupted audit resumes in the same run and still shows `run_ok`.
-- Graders compare runs blind and unblind only by consulting the registry.
+## Boundaries and practical notes
 
-## What prep does not do
-
-- Read the paper for claims, extract statistics, or any other audit work.
-- Install or run the authors' code or their R or Python environments.
-- Download raw neuroimaging datasets of arbitrary size: sources above the size caps (500 MB per
-  file, 5 GB per source; video and audio skipped) are inventoried as `listed_only`.
-- Fetch from hosts without a fetcher; those are `unsupported` in the manifest.
-- Delete anything the user supplied, rename paper folders, or blind a model to its own identity.
-
-## Gotchas
-
-- docling runs via `uvx`; its first run downloads models and is slow. If it fails, the
-  structured conversion is recorded as `failed` and the rest of prep continues.
-- Run folders carry the `com.dropbox.ignored` attribute so Dropbox does not upload a copy per
-  model; `prepared/` syncs. Use `--runs-root` if the corpus is not in Dropbox.
-- `scan` overwrites `prep.yaml` without asking. Never re-scan a folder whose `prep.yaml` has
-  been reviewed; back it up first if you must.
-- In zsh, `path` is tied to `PATH`: never use it as a loop variable.
-- `run` moves the raw folder, which resets a shell whose cwd was inside it. Always pass absolute
-  paths, and never `cd` into a raw folder before running prep.
-- A finalized prepared folder is read-only and `run` refuses it ("already finalized"). Check
-  `prep.py review` and the warnings before finalizing.
-- Folders finalized before the failure gate existed must be re-finalized: their manifest has
-  no clean `review`, so `new_run.py` refuses them and `verify_run.py` reports `not_prepared`.
-  Make the folder writable (`chmod -R u+w /abs/corpus/prepared/Smith_2021`), rerun
-  `prep.py run`, then `prep.py review` and `prep.py finalize`.
+- Prep does not extract scientific claims, assess findings, or execute authors' analyses.
+- Default data caps are 500 MB per file and 5000 MB per source; video/audio are skipped.
+  Larger sources are inventoried. Raw imaging downloads are not part of routine prep.
+- Docling may download models on first use. A requested conversion failure is recorded
+  for review; an intentionally disabled conversion is not a failure.
+- Legacy snapshots remain readable by their manifest schema. If the raw folder was moved
+  by an older prep version, recover a separate raw source before rebuilding; do not
+  reconstruct it by treating a prepared tree as raw input.
+- In zsh, use `dir`, not `path`, for loop variables (`path` is tied to `PATH`).

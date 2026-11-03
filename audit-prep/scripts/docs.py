@@ -205,5 +205,5 @@ def _tool_version(tool: str) -> str | None:
     return _first_line([tool, "--version"], 10)
 
 
-def tool_versions() -> dict[str, str | None]:
-    return {tool: _tool_version(tool) for tool in TOOLS}
+def tool_versions(structured: bool = True) -> dict[str, str | None]:
+    return {tool: None if tool == "docling" and not structured else _tool_version(tool) for tool in TOOLS}

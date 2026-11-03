@@ -4,6 +4,7 @@
 # ///
 """Validate a hand-edited prep.yaml: roles, classes, supplement order, paper count, accept_failures."""
 from collections import Counter
+from pathlib import Path
 
 FILE_ROLES = ("paper", "supplement", "data", "archive", "unsorted", "skip")
 LINK_ROLES = ("prereg", "code", "data", "unknown", "skip")
@@ -21,6 +22,12 @@ def _bad_value(name: str, key: str, value, allowed: tuple[str, ...]) -> list[str
 
 def _file_values(files: list[dict]) -> list[str]:
     return [m for f in files for m in _bad_value(f.get("path"), "role", f.get("role"), FILE_ROLES)]
+
+
+def _file_paths(files: list[dict]) -> list[str]:
+    return [f"{f.get('path')}: path must be a top-level name in the raw folder" for f in files
+            if not isinstance(f.get("path"), str) or f["path"] in ("", ".", "..")
+            or Path(f["path"]).name != f["path"]]
 
 
 def _link_values(plan_links: list[dict]) -> list[str]:
@@ -69,5 +76,7 @@ def _acceptance_problem(key, reason) -> str | None:
 
 def plan_problems(plan: dict) -> list[str]:
     files, plan_links = plan.get("files", []), plan.get("links", [])
-    return (_file_values(files) + _link_values(plan_links) + _supplement_orders(files) + _paper_count(files)
+    options = [] if isinstance(plan.get("structured_conversion", True), bool) else ["structured_conversion must be a boolean"]
+    return (options + _file_paths(files) + _file_values(files) + _link_values(plan_links)
+            + _supplement_orders(files) + _paper_count(files)
             + acceptance_problems(plan))

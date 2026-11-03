@@ -3,6 +3,14 @@
 `scan` writes a draft `prep.yaml` into the raw paper folder. The draft is
 heuristic. A reviewer (a model or a human) settles every ambiguous item, then
 `run` executes the plan. `run` refuses to start while anything is unresolved.
+After the draft starts, new retrieval links can be added and existing sources retried.
+Changing or removing a previously requested source requires a fresh draft, so stale
+downloaded files cannot remain in the prepared snapshot.
+Raw inputs stay in place; selected items are copied into a draft under `prepared/`.
+After draft creation, its `prep.yaml` is authoritative, including when `run` is called
+with the raw path. Edit links and acceptance reasons there. Changes to local file
+selection or raw contents require moving the draft aside and starting a fresh draft.
+The prep process does not delete existing drafts.
 
 ## Example
 
@@ -11,6 +19,7 @@ schema_version: 1
 paper_id: Bissett_2021
 reviewed_by: null                  # model name or "human"; required before run
 doi: 10.1126/sciadv.abf4355        # null -> the paper entry needs_review
+structured_conversion: true        # choose consistently across the corpus
 data_collection: {start: null, end: null, source_quote: null, page: null}
 size_policy: {max_file_mb: 500, max_source_mb: 5000, skip_ext: [mp4, mov, avi, wav, mp3, m4a]}
 files:
@@ -31,6 +40,7 @@ links:
 | `reviewed_by` | Who reviewed the plan: the model name, or `human`. `scan` leaves it `null`; the reviewer must fill it. `run` copies it into the manifest as `prepared_by`. Nothing inside a run folder may name the *auditing* model. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every run of a paper alike and does not identify the auditor; the audit's model identity lives only in `registry.jsonl`. |
 | `doi` | The paper's DOI: the first DOI on the first two pages of the paper PDF that Crossref reports as `journal-article`. Deposit DOIs (`10.5281/zenodo`, `10.17605/osf.io`, `10.6084/m9.figshare`, `10.5061/dryad`, `10.18112/openneuro`) are never candidates. `null` when no candidate is a journal-article; the paper entry is then `needs_review: true`. When Crossref could not be reached, the first candidate is kept unconfirmed and the paper entry needs review. Fill it in by hand if the reviewer finds it. |
 | `data_collection` | When the data were collected, from the paper text. `start` and `end` are ISO dates (`YYYY-MM-DD`, or `YYYY-MM` when only the month is stated); `source_quote` is the verbatim sentence; `page` is its page number. Leave all four `null` if the paper does not say. |
+| `structured_conversion` | Boolean, default `true`: request PDF Markdown, figure and table extraction. `false`: omit it, recorded as `not_requested`, while retaining text and page images. Choose consistently across the corpus before preparing model inputs. Changing it after a draft starts requires a fresh draft. Disabled conversion does not launch Docling, including for its version probe. |
 | `size_policy` | Download caps. `max_file_mb` (default 500) is the largest single file downloaded; `max_source_mb` (default 5000) is the largest total per data source; `skip_ext` (default `mp4 mov avi wav mp3 m4a`) are never downloaded. Sources over a cap are inventoried, not downloaded. Raise a cap only with a reason. |
 | `files` | One entry per top-level item in the raw folder. |
 | `links` | One entry per distinct URL or DOI found in any PDF, text or link annotation. |
@@ -40,7 +50,7 @@ links:
 
 | Key | Meaning |
 |---|---|
-| `path` | Path relative to the raw folder. |
+| `path` | A top-level name in the raw folder; absolute paths, parent traversal and nested paths are rejected. A selected directory includes its contents. |
 | `role` | `paper`, `supplement`, `data`, `archive`, `unsorted`, or `skip`. |
 | `order` | Supplements only: 1, 2, ... sets the name `supplement_<order>`. `null` otherwise. |
 | `needs_review` | `true` when the scanner could not decide. |
@@ -69,8 +79,8 @@ Roles:
   `node_modules`, `.ipynb_checkpoints`, `.Rproj.user`, `.Rhistory`, `.quarto`,
   `.DS_Store`), earlier audit output (`audit-*`, `*_files`, `figs_paper`,
   `*_audit.qmd`, `*_audit.html`, `osf_prereg`), and a `.txt` next to a
-  same-stem PDF. Moved to `unsorted/<paper_id>/`, never deleted.
-- `skip`: leave in place and do nothing with it. Needs a reason.
+  same-stem PDF. Retained in the raw folder and excluded from prepared inputs; never deleted.
+- `skip`: retain in the raw folder and exclude from prepared inputs. Needs a reason.
 
 ## `links` entries
 
@@ -126,7 +136,7 @@ layouts are often missed.
 1. **Settle every `needs_review`.** Decide the role, set `needs_review: false`,
    and rewrite `reason` as a one-line justification citing the page or
    statement that decided it.
-2. **Never delete a line.** A file or link that should not be fetched or moved
+2. **Never delete a line.** A file or link that should not be fetched or copied
    gets `role: skip` with a reason. Deleting lines hides what the scanner saw.
 3. **OSF: prereg or data?** An `osf.io/<id>` link (or OSF registry DOI
    `10.17605/OSF.IO/<ID>`) can be a project or a registration. Use the
@@ -158,5 +168,6 @@ layouts are often missed.
 `reviewed_by` is empty, any entry has `needs_review: true`, no file or more
 than one file has `role: paper`, a file or link `role` or a link `class` is not
 one of the values listed above, a supplement `order` is missing, not an integer
-or used twice, or a `files[].path` exists neither in the folder nor already in
-the prepared layout.
+or used twice, or a selected `files[].path` does not exist. Selected inputs must
+contain only ordinary files/directories: symbolic links, including nested or broken
+links, are rejected. Materialize needed targets before creating the draft.

@@ -63,12 +63,15 @@ def _structured(pdf: Path, out_dir: Path, run) -> None:
         raise RuntimeError(f"docling failed: {result['reason']}")
 
 
-def _process_pdf(pdf: Path, work: Path, doc: dict, ctx: tuple, run) -> None:
+def _process_pdf(pdf: Path, work: Path, doc: dict, ctx: tuple, run, structured: bool) -> None:
     txt, pages = pdf.with_suffix(".txt"), work / "pages"
     _convert(doc, "text", [txt], lambda: docs.pdf_to_text(pdf, txt), ctx)
     _convert(doc, "pages", [pages], lambda: docs.pdf_to_pages(pdf, pages), ctx)
-    structured = [work / f"{pdf.stem}.md", work / "figures", work / "tables"]
-    _convert(doc, "structured", structured, lambda: _structured(pdf, work, run), ctx)
+    if structured:
+        outputs = [work / f"{pdf.stem}.md", work / "figures", work / "tables"]
+        _convert(doc, "structured", outputs, lambda: _structured(pdf, work, run), ctx)
+    else:
+        doc["conversions"]["structured"] = "not_requested"
     doc["pages"] = len(list(pages.glob("p-*.png"))) or None
 
 
@@ -83,12 +86,12 @@ def _paper_statements(paper_dir: Path, doc: dict, m: dict) -> None:
     doc["conversions"]["statements"] = "skipped" if out.exists() else _attempt(write, label, m)
 
 
-def _process_supplement(prepared: Path, doc: dict, ctx: tuple, run) -> None:
+def _process_supplement(prepared: Path, doc: dict, ctx: tuple, run, structured: bool) -> None:
     src = prepared / doc["path"]
     work, suffix = src.with_suffix(""), src.suffix.lower()
     doc["conversions"] = dict(NOT_APPLICABLE)
     if suffix == ".pdf":
-        _process_pdf(src, work, doc, ctx, run)
+        _process_pdf(src, work, doc, ctx, run, structured)
     elif suffix == ".docx":
         md = src.with_suffix(".md")
         _convert(doc, "text", [md, work / "media"], lambda: docs.docx_to_md(src, md, work / "media"), ctx)
@@ -96,17 +99,18 @@ def _process_supplement(prepared: Path, doc: dict, ctx: tuple, run) -> None:
         _convert(doc, "text", [work], lambda: docs.xlsx_to_csv(src, work), ctx)
 
 
-def process_documents(prepared: Path, manifest: dict, run, previous: dict | None = None) -> None:
+def process_documents(prepared: Path, manifest: dict, run, previous: dict | None = None,
+                      structured: bool = True) -> None:
     """Convert every document; `previous` (from `previous_conversions`) says which outputs are done."""
     previous = previous or {}
     paper = manifest["documents"]["paper"]
     if paper:
         paper["conversions"] = dict(NOT_APPLICABLE)
         ctx = (manifest, previous.get(paper["path"], {}))
-        _process_pdf(prepared / paper["path"], prepared / "paper", paper, ctx, run)
+        _process_pdf(prepared / paper["path"], prepared / "paper", paper, ctx, run, structured)
         _paper_statements(prepared / "paper", paper, manifest)
     for doc in manifest["documents"]["supplements"]:
-        _process_supplement(prepared, doc, (manifest, previous.get(doc["path"], {})), run)
+        _process_supplement(prepared, doc, (manifest, previous.get(doc["path"], {})), run, structured)
 
 
 def record_metadata(prepared: Path, plan: dict, manifest: dict, get_json: Callable) -> None:

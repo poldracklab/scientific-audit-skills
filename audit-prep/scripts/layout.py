@@ -1,48 +1,39 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
-"""Locate a paper folder, move it into prepared/, and apply the prep.yaml file plan."""
+"""Copy selected raw inputs into a draft; raw folders are never moved."""
 import shutil
 from pathlib import Path
 
+import manifest as mf
 from corpus import Corpus, CorpusError
 
 PLAN_NAME = "prep.yaml"
 STATEMENTS = "statements.md"
 OWN_FILES = {PLAN_NAME, STATEMENTS}
-LAYOUT_DIRS = {"paper", "data", "github", "preregistration"}
-MOVE_ORDER = {"unsorted": 0, "data": 1, "archive": 1, "skip": 2, "paper": 3, "supplement": 3}
-
-
-def _is_under(path: Path, parent: Path) -> bool:
-    return path.resolve().is_relative_to(parent.resolve())
+SELECTED_ROLES = {"paper", "supplement", "data", "archive"}
 
 
 def locate(target: Path, corpus: Corpus) -> tuple[Path, str]:
-    target = Path(target)
-    if target.exists():
-        return target, "prepared" if _is_under(target, corpus.prepared) else "raw"
-    moved = corpus.prepared_dir(target.name)
-    if moved.exists():
-        return moved, "prepared"
-    raise CorpusError(f"{target} not found, and no {moved}")
-
-
-def move_into_prepared(raw: Path, corpus: Corpus) -> Path:
-    dest = corpus.prepared_dir(raw.name)
-    if dest.exists():
-        raise CorpusError(f"{dest} already exists; refusing to move {raw} over it")
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(raw), str(dest))
-    return dest
+    target = Path(target).absolute()
+    prepared = corpus.prepared_dir(target.name).absolute()
+    raw = (corpus.root / target.name).absolute()
+    if target not in (raw, prepared):
+        raise CorpusError(f"{target} is not a raw or prepared paper folder in {corpus.root}")
+    for path in (raw, corpus.prepared, prepared):
+        if path.is_symlink():
+            raise CorpusError(f"symlink not permitted: {path}")
+        if not path.resolve().is_relative_to(corpus.root.resolve()):
+            raise CorpusError(f"{path} is outside corpus {corpus.root}")
+    if prepared.exists():
+        return prepared, "prepared"
+    if target == raw and raw.is_dir():
+        return raw, "raw"
+    raise CorpusError(f"{target} not found, and no {prepared}")
 
 
 def _rel(path: Path, base: Path) -> str:
     return path.relative_to(base).as_posix()
 
 
-def _destination(entry: dict, prepared: Path, corpus: Corpus) -> Path | None:
+def _destination(entry: dict, prepared: Path) -> Path | None:
     name, role = entry["path"], entry["role"]
     suffix = Path(name).suffix.lower()
     if role == "paper":
@@ -50,42 +41,47 @@ def _destination(entry: dict, prepared: Path, corpus: Corpus) -> Path | None:
     if role == "supplement":
         return prepared / "paper" / f"supplement_{entry['order']}{suffix}"
     if role in ("data", "archive"):
-        return prepared / "data" / Path(name).name
-    if role == "unsorted":
-        return corpus.unsorted_dir(prepared.name) / name
+        return prepared / "data" / name
     return None
 
 
-def _parked(prepared: Path, name: str) -> Path:
-    return prepared / f".parked-{name}"
+def _planned(plan: dict, prepared: Path) -> list[tuple[dict, Path | None]]:
+    return [(f, _destination(f, prepared)) for f in plan["files"] if f["path"] not in OWN_FILES]
 
 
-def _source(prepared: Path, name: str) -> Path:
-    parked = _parked(prepared, name)
-    return parked if parked.exists() else prepared / name
+def missing_files(plan: dict, folder: Path, corpus: Corpus) -> list[str]:
+    raw = corpus.root / folder.name
+    return [f"{e['path']}: listed in prep.yaml but not found" for e in plan["files"]
+            if e["role"] in SELECTED_ROLES and not (raw / e["path"]).exists()]
 
 
-def _park_collisions(prepared: Path, planned: list[tuple[dict, Path]]) -> None:
-    """Rename top-level raw items named like a layout dir (e.g. `data/`) out of the way first."""
-    for entry, dest in planned:
-        src = prepared / entry["path"]
-        if entry["path"] in LAYOUT_DIRS and dest is not None and src.exists() and not dest.exists():
-            src.rename(_parked(prepared, entry["path"]))
+def source_snapshot(raw: Path, plan: dict) -> dict:
+    """Pin selected source bytes and layout so retries cannot reuse stale conversions."""
+    selection, files = [], []
+    for entry in plan["files"]:
+        if entry["role"] not in SELECTED_ROLES:
+            continue
+        selection.append({k: entry.get(k) for k in ("path", "role", "order")})
+        src = raw / entry["path"]
+        mf.reject_symlinks(src)
+        if src.is_dir():
+            files.extend({**f, "path": f"{entry['path']}/{f['path']}"} for f in mf.hash_tree(src, exclude=()))
+        else:
+            files.append({"path": entry["path"], "size": src.stat().st_size, "sha256": mf._sha256(src)})
+    return {"selection": sorted(selection, key=lambda e: e["path"]),
+            "files": sorted(files, key=lambda e: e["path"]),
+            "structured_conversion": plan.get("structured_conversion", True)}
 
 
-def _move(src: Path, dest: Path) -> str:
-    if dest.exists():
-        if src.exists() and not dest.is_relative_to(src):
-            raise CorpusError(f"both {src} and {dest} exist; resolve by hand")
-        return "skipped"
-    if not src.exists():
-        return "missing"
+def _copy(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(src), str(dest))
-    return "ok"
+    if src.is_dir():
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+    else:
+        shutil.copy2(src, dest)
 
 
-def _record_file(entry: dict, dest: Path, prepared: Path, corpus: Corpus, m: dict, previous: dict) -> None:
+def _record_file(entry: dict, dest: Path, prepared: Path, m: dict, previous: dict) -> None:
     role, name = entry["role"], entry["path"]
     if role in ("paper", "supplement"):
         doc = {"original_name": name, "path": _rel(dest, prepared), "pages": None, "conversions": {}}
@@ -93,45 +89,29 @@ def _record_file(entry: dict, dest: Path, prepared: Path, corpus: Corpus, m: dic
             m["documents"]["paper"] = doc
         else:
             m["documents"]["supplements"].append(doc)
-    elif role == "data":
-        m["local_data"].append({"original_path": name, "path": _rel(dest, prepared)})
-    elif role == "archive":
-        m["local_data"].append({"original_path": name, "path": _rel(dest, prepared), "archive": True,
-                                "extracted": previous.get(name)})
-    elif role == "unsorted":
-        m["unsorted"].append({"original_path": name, "moved_to": _rel(dest, corpus.root),
-                              "reason": entry.get("reason")})
-
-
-def _planned(plan: dict, prepared: Path, corpus: Corpus) -> list[tuple[dict, Path | None]]:
-    entries = [f for f in plan["files"] if f["path"] not in OWN_FILES]
-    entries.sort(key=lambda f: MOVE_ORDER.get(f["role"], 2))
-    return [(f, _destination(f, prepared, corpus)) for f in entries]
-
-
-def _present(folder: Path, name: str, dest: Path | None) -> bool:
-    return (folder / name).exists() or _parked(folder, name).exists() or bool(dest and dest.exists())
-
-
-def missing_files(plan: dict, folder: Path, corpus: Corpus) -> list[str]:
-    """Plan entries found neither in `folder` nor already moved into the prepared layout."""
-    planned = _planned(plan, corpus.prepared_dir(folder.name), corpus)
-    return [f"{e['path']}: listed in prep.yaml but not found" for e, dest in planned
-            if not _present(folder, e["path"], dest)]
+    else:
+        record = {"original_path": name, "path": _rel(dest, prepared)}
+        if role == "archive":
+            record.update(archive=True, extracted=previous.get(name))
+        m["local_data"].append(record)
 
 
 def apply_file_plan(prepared: Path, plan: dict, corpus: Corpus, manifest: dict) -> None:
+    raw = corpus.root / prepared.name
     previous = {e["original_path"]: e.get("extracted") for e in manifest["local_data"] if e.get("archive")}
     manifest.update(documents={"paper": None, "supplements": []}, local_data=[], unsorted=[])
-    planned = _planned(plan, prepared, corpus)
-    _park_collisions(prepared, planned)
-    for entry, dest in planned:
+    for entry, dest in _planned(plan, prepared):
         if dest is None:
-            manifest["warnings"].append(f"{entry['path']}: role {entry['role']}, left in place ({entry.get('reason')})")
+            manifest["unsorted"].append({"original_path": entry["path"],
+                                        "left_at": f"{prepared.name}/{entry['path']}",
+                                        "reason": entry.get("reason")})
             continue
-        if _move(_source(prepared, entry["path"]), dest) == "missing":
-            manifest["warnings"].append(f"{entry['path']}: listed in prep.yaml but not found")
-            continue
-        _record_file(entry, dest, prepared, corpus, manifest, previous)
+        _copy(raw / entry["path"], dest)
+        _record_file(entry, dest, prepared, manifest, previous)
     manifest["documents"]["supplements"].sort(key=lambda d: d["path"])
-    _move(prepared / STATEMENTS, prepared / "paper" / STATEMENTS)
+
+
+def create_draft(raw: Path, prepared: Path) -> Path:
+    prepared.mkdir(parents=True)
+    shutil.copy2(raw / PLAN_NAME, prepared / PLAN_NAME)
+    return prepared

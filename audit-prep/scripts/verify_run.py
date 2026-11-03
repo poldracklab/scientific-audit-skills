@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+from corpus import CorpusError
+
 from manifest import has_clean_review, hash_tree, is_os_metadata, load_manifest
 
 ALLOWED_EXTRA = ("run.json", "audit")
@@ -58,7 +60,10 @@ def verify(folder: Path) -> tuple[str, list[str]]:
         return "not_prepared", [NO_REVIEW]
     if not (folder / "run.json").is_file():
         return "prepared_not_run", []
-    return _compare(folder, m)
+    try:
+        return _compare(folder, m)
+    except CorpusError as exc:
+        return "run_dirty", [str(exc)]
 
 
 def main(argv: list[str] | None = None) -> int:

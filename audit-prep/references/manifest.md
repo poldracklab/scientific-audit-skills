@@ -1,6 +1,6 @@
 # manifest.json (schema_version 1)
 
-Written by `scripts/manifest.py`. All paths are relative to the prepared folder, POSIX separators. `README.md` is rendered from this file and never hand-edited.
+Written by `scripts/manifest.py`. Paths use POSIX separators and are relative to the prepared folder unless noted otherwise. `README.md` is rendered from this file and never hand-edited.
 
 ## Top-level keys
 
@@ -20,9 +20,10 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 | `code` | `[{url, path, commit, branch, cloned_at, status, reason, zenodo_doi}]`; a non-GitHub code link is `{source, id, url, path: null, status: unsupported, files: [], reason}`. |
 | `data` | FetchResult-shaped items, see below. |
 | `local_data` | Author-supplied data, see below. |
-| `unsorted` | `[{original_path, moved_to, reason}]`; files moved to `unsorted/<Paper_Year>/`. |
-| `files` | `[{path, size, sha256}]` for every regular file under the prepared folder except top-level `manifest.json` and `README.md`. Symlinks and Finder/Dropbox metadata (`.DS_Store`, `Icon\r`, `.dropbox`, `.dropbox.cache`, at any depth) are skipped; `.git` contents and `prep.yaml` are included. Sorted by path. Used by `verify_run.py`. |
+| `unsorted` | `[{original_path, left_at, reason}]`; both `skip` and `unsorted` inputs are excluded from the snapshot and retained in the raw folder. `left_at` is relative to the corpus root. Older manifests may have `moved_to`, which the README still displays. |
+| `files` | `[{path, size, sha256}]` for every regular file under the prepared folder except top-level `manifest.json` and `README.md`. Symbolic links are rejected; Finder/Dropbox metadata (`.DS_Store`, `Icon\r`, `.dropbox`, `.dropbox.cache`, at any depth) are skipped; `.git` contents and `prep.yaml` are included. Sorted by path. Used by `verify_run.py`. |
 | `warnings` | `[str]`. |
+| `source_snapshot` | `{selection: [{path, role, order}], files: [{path, size, sha256}], structured_conversion: bool, retrieval_sources: [{url, canonical, class, role}]}`. Pins local inputs and conversion choice; changing them requires a fresh draft. Previously requested retrieval sources cannot be changed or removed, but new sources may be added. File paths are relative to the raw folder. |
 | `plan_sha256` | sha256 of `prep.yaml` as `run` executed it: the canonical JSON (`json.dumps(plan, sort_keys=True)`) of the loaded plan without its `accept_failures` key. `review` compares it with the plan on disk, so editing only `accept_failures` never changes it. |
 | `review` | Null until `run` finishes; then `{status: ok\|failed, problems: [{kind, item, status, detail}], accepted: [{kind, item, status, detail, accepted_reason}], unused: [str]}`, recomputed by `finalize` (a finalized folder has `status: ok`). `kind` is `run`, `plan`, `paper`, `conversion`, `metadata`, `local_data`, `preregistration`, `code`, `data` or `link`. `item` grammar: `run` (status `incomplete`: `run` resets `review` to null at its start, so a null review means it never reached its final step); `plan` (status `modified`: the files, links or roles in `prep.yaml` differ from what `run` executed, or the manifest has no `plan_sha256`; rerun `prep.py run`); `paper`; `conversion <doc path> <name>`; `metadata crossref`; `local_data <path>` (status `failed`, `skipped`, or `not_extracted` for a nested archive); `preregistration <source> <id>`; `code <url>`; `data <source> <id>`; `link <canonical>` (status `not_fetched`: a prereg/code/data link in `prep.yaml` with no entry in `links`, i.e. added after `run`). |
 
@@ -46,7 +47,7 @@ OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as me
 
 ## Status vocabularies
 
-- Per-step statuses (conversions): `ok | skipped | failed | not_applicable`. `skipped`: the output exists and the previous run recorded it `ok` (or `skipped`); any other existing output is treated as partial, removed and converted again. A supplement whose suffix has no converter (`.doc`, `.pptx`, `.csv`, ...) ends with every conversion `not_applicable`; that is not a problem, and the auditor gets the raw file.
+- Per-step statuses (conversions): `ok | skipped | failed | not_applicable | not_requested`. `not_requested`: optional structured conversion disabled in `prep.yaml` (`structured_conversion: false`); it is not a prep failure. `skipped`: the output exists and the previous run recorded it `ok` (or `skipped`); any other existing output is treated as partial, removed and converted again. A supplement whose suffix has no converter (`.doc`, `.pptx`, `.csv`, ...) ends with every conversion `not_applicable`; that is not a problem, and the auditor gets the raw file.
 - `code` status: `ok | skipped | failed | unsupported`. `skipped`: the clone already exists. `unsupported`: a code link not on GitHub (reason "code links are fetched from GitHub only; fetch manually").
 - `links` status: the status of the fetch record it produced (`data`, `preregistration` or `code` vocabulary), or `skipped` for roles that are never fetched (`skip`, `unknown`, Crossref relation DOIs). `fetched_to` is set only when something is on disk.
 - `data` status: `ok | partial | listed_only | failed | unsupported`.

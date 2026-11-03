@@ -29,7 +29,8 @@ from layout import (
     apply_file_plan,
     locate,
     missing_files,
-    move_into_prepared,
+    create_draft,
+    source_snapshot,
 )
 
 import docs
@@ -82,16 +83,17 @@ def checked_plan(folder: Path, corpus: Corpus) -> dict:
     if not path.is_file():
         raise PlanError(f"no {PLAN_NAME} in {folder}; run `prep.py scan` first")
     plan = scan.load_plan(path)
-    _refuse_if(scan.unresolved(plan) + missing_files(plan, folder, corpus))
+    _refuse_if(scan.unresolved(plan))
+    _refuse_if(missing_files(plan, folder, corpus))
     return plan
 
 
 def print_plan(folder: Path, plan: dict, corpus: Corpus) -> None:
     prepared = corpus.prepared_dir(folder.name)
     show = lambda p: os.path.relpath(p, corpus.root)  # noqa: E731
-    print(f"MOVE {folder} -> {show(prepared)}")
-    for entry, dest in _planned(plan, prepared, corpus):
-        print(f"MOVE {entry['path']} -> {show(dest)}" if dest else f"LEAVE {entry['path']} ({entry['role']})")
+    print(f"COPY selected inputs from {corpus.root / folder.name} -> {show(prepared)}")
+    for entry, dest in _planned(plan, prepared):
+        print(f"COPY {entry['path']} -> {show(dest)}" if dest else f"EXCLUDE {entry['path']} ({entry['role']})")
         if entry["role"] in ("paper", "supplement"):
             print(f"CONVERT {show(dest)}")
     for link in plan.get("links", []):
@@ -112,7 +114,8 @@ def skill_commit(scripts_dir: Path = SCRIPTS_DIR) -> str | None:
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
-             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None,
+             prep_versions={**clients.tool_versions(structured=plan.get("structured_conversion", True)),
+                            "skill": skill_commit()}, warnings=[], review=None,
              finalized=False, plan_sha256=review.plan_sha256(plan))
     return m
 
@@ -120,19 +123,24 @@ def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
 def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_run: bool = False) -> dict:
     clients = clients or Clients()
     folder, kind = locate(target, corpus)
+    if kind == "prepared":
+        mf.reject_symlinks(folder)
     if mf.is_prepared(folder):
         raise CorpusError(f"{folder} is already finalized")
     plan = checked_plan(folder, corpus)
+    snapshot = _check_sources(folder, plan, corpus)
     if dry_run:
         print_plan(folder, plan, corpus)
         return mf.load_manifest(folder) or mf.new_manifest(folder.name, plan["reviewed_by"])
-    prepared = move_into_prepared(folder, corpus) if kind == "raw" else folder
+    prepared = create_draft(folder, corpus.prepared_dir(folder.name)) if kind == "raw" else folder
     m = _start_manifest(prepared, plan, clients)
+    m["source_snapshot"] = snapshot
     previous = previous_conversions(m)
     mf.write_manifest(prepared, m)
     steps = [lambda: apply_file_plan(prepared, plan, corpus, m),
              lambda: extract_archives(prepared, m, clients.run),
-             lambda: process_documents(prepared, m, clients.run, previous),
+             lambda: process_documents(prepared, m, clients.run, previous,
+                                       structured=plan.get("structured_conversion", True)),
              lambda: record_metadata(prepared, plan, m, clients.get_json),
              lambda: fetch_all(prepared, plan, m, clients)]
     for step in steps:
@@ -141,6 +149,28 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
     m["review"] = review.review_manifest(m, plan)
     mf.write_manifest(prepared, m)
     return m
+
+
+def _check_sources(folder: Path, plan: dict, corpus: Corpus) -> dict:
+    snapshot = source_snapshot(corpus.root / folder.name, plan)
+    snapshot["retrieval_sources"] = _retrieval_sources(plan)
+    manifest = mf.load_manifest(folder) or {}
+    previous = manifest.get("source_snapshot")
+    if previous and previous["selection"] != snapshot["selection"]:
+        raise PlanError("file selection changed; move the draft aside and create a fresh draft from raw inputs")
+    if previous and previous["files"] != snapshot["files"]:
+        raise PlanError("raw inputs changed; move the draft aside and create a fresh draft from raw inputs")
+    if previous and previous.get("structured_conversion", True) != snapshot["structured_conversion"]:
+        raise PlanError("conversion choice changed; move the draft aside and create a fresh draft from raw inputs")
+    prior_sources = (previous or {}).get("retrieval_sources", _retrieval_sources(manifest))
+    if any(source not in snapshot["retrieval_sources"] for source in prior_sources):
+        raise PlanError("retrieval source changed; move the draft aside and create a fresh draft from raw inputs")
+    return snapshot
+
+
+def _retrieval_sources(record: dict) -> list[dict]:
+    return [{key: link.get(key) for key in ("url", "canonical", "class", "role")}
+            for link in record.get("links", []) if link.get("role") in ("data", "code", "prereg")]
 
 
 def _set_writable(target: Path, writable: bool) -> None:
@@ -194,6 +224,7 @@ def _gate(prepared: Path, m: dict, plan: dict) -> None:
 
 
 def finalize(prepared: Path) -> dict:
+    mf.reject_symlinks(prepared)
     m = _manifest(prepared)
     if mf.is_prepared(prepared):
         return m

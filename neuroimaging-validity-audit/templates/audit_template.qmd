@@ -80,6 +80,17 @@ Checks and sensitivity analyses are the auditor's choices unless attributed to t
 | Artifact/version | Source/location | Available vs inspected | Role and limitations |
 |---|---|---|---|
 
+## Additional evidence
+
+<!-- Distinguish supplied evidence above from discovered evidence here. Save retrieved
+     material under audit/additional-evidence/ (paths below relative to audit/). Record
+     versions/commits, failed retrievals and prep gaps resolved. Findings lists dependent
+     finding IDs; say "none retrieved" if appropriate. Keep prepared inputs unchanged. -->
+
+| Source URL | Retrieval date | Local file | Findings |
+|---|---|---|---|
+
+
 # Claim ledger and mechanisms {.appendix}
 
 | ID | Exact claim and location | Supporting result/location | Measurement and design | Required assumptions |

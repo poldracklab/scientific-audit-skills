@@ -8,6 +8,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from corpus import CorpusError
+
 SCHEMA_VERSION = 1
 MANIFEST_NAME = "manifest.json"
 DEFAULT_EXCLUDE = ("manifest.json", "README.md")
@@ -54,13 +56,24 @@ def is_os_metadata(rel: Path) -> bool:
     return any(part in OS_METADATA for part in rel.parts)
 
 
+def reject_symlinks(root: Path, prune: tuple[str, ...] = ()) -> None:
+    """Check paths before copying or writing; audit output may be pruned by callers."""
+    if root.is_symlink():
+        raise CorpusError(f"symlink not permitted: {root}")
+    for path in root.rglob("*"):
+        rel = path.relative_to(root)
+        if rel.parts[0] not in prune and path.is_symlink():
+            raise CorpusError(f"symlink not permitted: {rel}")
+
+
 def hash_tree(root: Path, exclude: tuple[str, ...] = DEFAULT_EXCLUDE, prune: tuple[str, ...] = ()) -> list[dict]:
+    reject_symlinks(root, prune)
     entries = []
     for p in root.rglob("*"):
         rel = p.relative_to(root)
         if rel.parts[0] in prune or is_os_metadata(rel):
             continue
-        if p.is_symlink() or not p.is_file() or _is_excluded(rel, exclude):
+        if not p.is_file() or _is_excluded(rel, exclude):
             continue
         entries.append({"path": rel.as_posix(), "size": p.stat().st_size, "sha256": _sha256(p)})
     return sorted(entries, key=lambda e: e["path"])
@@ -172,8 +185,9 @@ def _local_data(m: dict) -> list[str]:
 
 
 def _unsorted(m: dict) -> list[str]:
-    rows = [[u.get("original_path"), u.get("moved_to"), u.get("reason")] for u in m.get("unsorted") or []]
-    body = _table(["Original", "Moved to", "Reason"], rows) if rows else []
+    rows = [[u.get("original_path"), u.get("left_at", u.get("moved_to")), u.get("reason")]
+            for u in m.get("unsorted") or []]
+    body = _table(["Excluded input", "Location outside prepared folder", "Reason"], rows) if rows else []
     return _section("Unsorted", body, "none")
 
 

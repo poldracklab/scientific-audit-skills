@@ -7,7 +7,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-from plan_check import PLACEHOLDER
+from plan_check import PLACEHOLDER, UNACCEPTABLE
 
 EXTRACT_PROBLEMS = {"failed", "skipped"}
 CODE_PROBLEMS = {"failed", "unsupported"}
@@ -113,7 +113,8 @@ def plan_modified(m: dict, plan: dict) -> Problem | None:
 
 
 def _review(problems: list[Problem], plan: dict) -> dict:
-    accept = plan.get("accept_failures") or {}
+    accept = {key: reason for key, reason in (plan.get("accept_failures") or {}).items()
+              if key not in UNACCEPTABLE}
     items = {p.item for p in problems}
     open_ = [asdict(p) for p in problems if p.item not in accept]
     accepted = [{**asdict(p), "accepted_reason": accept[p.item]} for p in problems if p.item in accept]

@@ -99,6 +99,17 @@ dat <- read.csv("../data/osf_ID/PATH/TO/DATA.csv")
 
 Data/code gaps and every reconstructed variable: 
 
+## Additional evidence
+
+<!-- Distinguish supplied evidence above from discovered evidence here. Save retrieved
+     material under audit/additional-evidence/ (paths below relative to audit/). Record
+     versions/commits, failed retrievals and prep gaps resolved. Findings lists dependent
+     finding IDs; say "none retrieved" if appropriate. Keep prepared inputs unchanged. -->
+
+| Source URL | Retrieval date | Local file | Findings |
+|---|---|---|---|
+
+
 # Preregistration deviations {.appendix}
 
 <!-- If no prereg: rename "Analytic choices" and tabulate Choice | Used | Alternatives in the data | Consequence. -->

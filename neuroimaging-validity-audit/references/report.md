@@ -50,6 +50,20 @@ prose.
 Main body target: at most 1500 prose words. When the body runs long, move material to the
 appendix instead of compressing sentences.
 
+## Additional evidence provenance
+
+Keep supplied evidence separate from discovered evidence. Save new material under
+`audit/additional-evidence/`; paths in the report are relative to `audit/`. Include this
+table in the materials appendix, recording versions/commits when available and identifying
+which findings depend on each source. Record failed retrievals and prep gaps subsequently
+resolved. If no additional material was retrieved, say so.
+
+| Source URL | Retrieval date | Local file | Findings |
+|---|---|---|---|
+
+For a source that cannot be saved, give the stable URL and what was inspected. Keep the
+prepared inputs unchanged; new evidence does not modify the common starting snapshot.
+
 ## Finding record
 
 ```
