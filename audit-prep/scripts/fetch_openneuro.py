@@ -24,7 +24,8 @@ NO_SNAPSHOT = "dataset has no snapshot"
 RESERVED = {"dataset.json", "files.json"}
 RESERVED_REASON = "name reserved for prep metadata"
 OPENNEURO_ID_RE = re.compile(r"(?:openneuro\.org/datasets/|10\.18112/openneuro\.)(ds\d{6})", re.I)
-TAG_RE = re.compile(r"openneuro\.org/datasets/ds\d{6}/versions/([^/?#\s]+)|10\.18112/openneuro\.ds\d{6}\.v([^/?#\s]+)", re.I)
+TAG_RE = re.compile(r"openneuro\.org/datasets/ds\d{6}/versions/([^/?#\s]+)"
+                    r"|10\.18112/openneuro\.ds\d{6}\.v([^/?#\s]+)", re.I)
 
 
 class GraphQLError(Exception):
@@ -129,7 +130,8 @@ def _meta(snapshot: dict) -> dict:
             "size": summary.get("size")}
 
 
-def fetch_openneuro(ds: str, dest: Path, policy: SizePolicy, post_json, get_bytes, tag: str | None = None) -> FetchResult:
+def fetch_openneuro(ds: str, dest: Path, policy: SizePolicy, post_json, get_bytes,
+                    tag: str | None = None) -> FetchResult:
     try:
         dataset, snapshot = _resolve(ds, tag, post_json)
         listing = _listing(ds, snapshot)

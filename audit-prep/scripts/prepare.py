@@ -72,14 +72,17 @@ def scan_folder(raw: Path, get_json: Callable) -> dict:
     return plan
 
 
+def _refuse_if(problems: list[str]) -> None:
+    if problems:
+        raise PlanError(f"{PLAN_NAME} is not ready:\n" + "\n".join(f"- {p}" for p in problems))
+
+
 def checked_plan(folder: Path, corpus: Corpus) -> dict:
     path = folder / PLAN_NAME
     if not path.is_file():
         raise PlanError(f"no {PLAN_NAME} in {folder}; run `prep.py scan` first")
     plan = scan.load_plan(path)
-    problems = scan.unresolved(plan) + missing_files(plan, folder, corpus)
-    if problems:
-        raise PlanError("prep.yaml is not ready:\n" + "\n".join(f"- {p}" for p in problems))
+    _refuse_if(scan.unresolved(plan) + missing_files(plan, folder, corpus))
     return plan
 
 
@@ -109,8 +112,8 @@ def skill_commit(scripts_dir: Path = SCRIPTS_DIR) -> str | None:
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
-             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None, finalized=False,
-             plan_sha256=review.plan_sha256(plan))
+             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None,
+             finalized=False, plan_sha256=review.plan_sha256(plan))
     return m
 
 
@@ -173,9 +176,7 @@ def _plan(folder: Path) -> dict:
     if not (folder / PLAN_NAME).is_file():
         raise CorpusError(f"{folder} has no {PLAN_NAME}")
     plan = scan.load_plan(folder / PLAN_NAME)
-    bad = plan_check.acceptance_problems(plan)
-    if bad:
-        raise PlanError(f"{PLAN_NAME} is not ready:\n" + "\n".join(f"- {b}" for b in bad))
+    _refuse_if(plan_check.acceptance_problems(plan))
     return plan
 
 
