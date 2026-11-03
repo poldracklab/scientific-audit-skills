@@ -52,8 +52,15 @@ def acceptance_problems(plan: dict) -> list[str]:
         return []
     if not isinstance(accept, dict):
         return ["accept_failures must be a mapping of item -> reason"]
-    return [f"accept_failures: {key}: reason required" for key, reason in accept.items()
-            if not isinstance(key, str) or not isinstance(reason, str) or not reason.strip()]
+    return [msg for key, reason in accept.items() if (msg := _acceptance_problem(key, reason))]
+
+
+def _acceptance_problem(key, reason) -> str | None:
+    if key == "run":
+        return "accept_failures: run: cannot be accepted; rerun prep.py run instead"
+    if not isinstance(key, str) or not isinstance(reason, str) or not reason.strip():
+        return f"accept_failures: {key}: reason required"
+    return None
 
 
 def plan_problems(plan: dict) -> list[str]:

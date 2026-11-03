@@ -124,6 +124,7 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
         return mf.load_manifest(folder) or mf.new_manifest(folder.name, plan["reviewed_by"])
     prepared = move_into_prepared(folder, corpus) if kind == "raw" else folder
     m = _start_manifest(prepared, plan, clients)
+    mf.write_manifest(prepared, m)
     steps = [lambda: apply_file_plan(prepared, plan, corpus, m),
              lambda: extract_archives(prepared, m, clients.run),
              lambda: process_documents(prepared, m, clients.run),
