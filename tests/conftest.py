@@ -134,8 +134,8 @@ SHAPES = {
 @pytest.fixture
 def raw_folder(tmp_path, fixture_pdf):
     def make(shape: str) -> Path:
-        raw = tmp_path / "Paper_2024"
-        raw.mkdir()
+        raw = tmp_path / shape / "Paper_2024"
+        raw.mkdir(parents=True)
         SHAPES[shape](raw, fixture_pdf)
         return raw
 
