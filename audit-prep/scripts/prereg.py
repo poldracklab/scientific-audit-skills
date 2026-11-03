@@ -5,6 +5,7 @@
 """Fetch preregistrations: OSF registrations, AsPredicted, ClinicalTrials.gov, PROSPERO."""
 import json
 import re
+import urllib.error
 from pathlib import Path, PurePosixPath
 from urllib.parse import parse_qs, urlsplit
 
@@ -12,6 +13,8 @@ from fetch_osf import fetch_osf_registration, osf_id, registration_attributes
 
 CTGOV_API = "https://clinicaltrials.gov/api/v2/studies/"
 NCT_RE = re.compile(r"NCT\d{8}")
+SAFE_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
+NOT_FOUND = (404, 410)
 
 
 def _result(source: str, ident: str | None, path, date=None, status="ok", reason="") -> dict:
@@ -69,8 +72,9 @@ def _fetch_osf(url: str, dest: Path, get_json, get_bytes) -> dict:
     reg = osf_id(url)
     try:
         registration_attributes(reg, get_json)
-    except Exception:
-        return _result("osf", reg, None, status="failed", reason="not a registration")
+    except urllib.error.HTTPError as e:
+        reason = "not a registration" if e.code in NOT_FOUND else str(e)
+        return _result("osf", reg, None, status="failed", reason=reason)
     return fetch_osf_registration(reg, dest, get_json, get_bytes)
 
 
@@ -95,6 +99,8 @@ def fetch_prereg(link: dict, dest_root: Path, get_json, get_bytes) -> dict:
     ident = id_of(url)
     if not ident:
         return _result(source, None, None, status="failed", reason=f"no {source} id in {url}")
+    if not SAFE_ID_RE.fullmatch(ident):
+        return _result(source, ident, None, status="failed", reason="unsafe id")
     rel = f"preregistration/{source}_{ident}"
     try:
         return _relative(fetch(url, dest_root / rel, get_json, get_bytes), rel)

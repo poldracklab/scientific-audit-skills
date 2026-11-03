@@ -7,7 +7,7 @@ import hashlib
 import json
 import urllib.request
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 MB = 10**6
 DEFAULT_SKIP_EXT = frozenset({"mp4", "mov", "avi", "wav", "mp3", "m4a"})
@@ -60,7 +60,22 @@ def select_downloads(
     return (chosen, "partial") if chosen else ([], "listed_only")
 
 
-def download(url: str, dest: Path, get_bytes) -> Path:
+def safe_join(dest: Path, rel: str) -> Path:
+    """Join an untrusted relative path onto `dest`; raise ValueError if it could escape."""
+    parts = PurePosixPath(rel).parts
+    if not parts or PurePosixPath(rel).is_absolute() or ".." in parts:
+        raise ValueError(f"unsafe path: {rel!r}")
+    root = dest.resolve()
+    target = (root / rel).resolve()
+    if not target.is_relative_to(root) or target == root:
+        raise ValueError(f"unsafe path: {rel!r}")
+    return target
+
+
+def download(url: str, dest: Path, get_bytes, rel: str | None = None) -> Path:
+    """Write the bytes at `url` to `dest`, or to `dest/rel` confined by `safe_join` when `rel` is given."""
+    if rel is not None:
+        dest = safe_join(dest, rel)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(get_bytes(url))
     return dest

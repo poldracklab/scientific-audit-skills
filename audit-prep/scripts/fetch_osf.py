@@ -43,22 +43,31 @@ def list_osf_files(node_id: str, get_json) -> list[RemoteFile]:
     return walk_listing(f"{API}/nodes/{node_id}/files/osfstorage/", get_json)
 
 
-def _download_all(files: list[RemoteFile], dest: Path, get_bytes) -> dict[str, str]:
-    return {f.path: sha256_file(download(f.url, dest / f.path, get_bytes)) for f in files}
+def _file_record(f: RemoteFile, sha: str | None = None, reason: str = "") -> dict:
+    rec = {"path": f.path, "size": f.size, "remote_hash": f.remote_hash, "downloaded": sha is not None, "sha256": sha}
+    return {**rec, "reason": reason} if reason else rec
 
 
-def _file_record(f: RemoteFile, sha: str | None) -> dict:
-    return {"path": f.path, "size": f.size, "remote_hash": f.remote_hash, "downloaded": sha is not None, "sha256": sha}
+def _download_one(f: RemoteFile, dest: Path, get_bytes) -> dict:
+    """Download one file confined to `dest`; a failure is recorded on the file, never raised."""
+    try:
+        return _file_record(f, sha256_file(download(f.url, dest, get_bytes, f.path)))
+    except Exception as e:
+        return _file_record(f, reason=str(e))
+
+
+def _records(files: list[RemoteFile], selected: list[RemoteFile], dest: Path, get_bytes) -> list[dict]:
+    chosen = {id(f) for f in selected}
+    return [_download_one(f, dest, get_bytes) if id(f) in chosen else _file_record(f) for f in files]
 
 
 def fetch_osf_files(node_id: str, dest: Path, policy: SizePolicy, get_json, get_bytes) -> FetchResult:
     try:
         files = list_osf_files(node_id, get_json)
-        selected, status = select_downloads(files, policy)
-        hashes = _download_all(selected, dest, get_bytes)
-    except Exception as e:  # any API or download error is recorded, never raised
+    except Exception as e:  # any API error is recorded, never raised
         return FetchResult("osf", node_id, str(dest), "failed", [], str(e))
-    return FetchResult("osf", node_id, str(dest), status, [_file_record(f, hashes.get(f.path)) for f in files])
+    selected, status = select_downloads(files, policy)
+    return FetchResult("osf", node_id, str(dest), status, _records(files, selected, dest, get_bytes))
 
 
 def node_registration_count(node_id: str, get_json) -> int:
@@ -80,8 +89,8 @@ def _summary(attrs: dict) -> dict:
 
 
 def _verify(f: RemoteFile, dest: Path, get_bytes) -> dict:
-    actual = sha256_file(download(f.url, dest / f.path, get_bytes))
-    verified = f.remote_hash is not None and f.remote_hash == actual
+    actual = sha256_file(download(f.url, dest, get_bytes, f.path))
+    verified = None if f.remote_hash is None else f.remote_hash == actual
     return {"name": f.path, "sha256_expected": f.remote_hash, "sha256_actual": actual, "verified": verified}
 
 
@@ -107,5 +116,11 @@ def fetch_osf_registration(reg_id: str, dest: Path, get_json, get_bytes) -> dict
         _write_metadata(dest, rec, attrs)
     except Exception as e:  # any API or download error is recorded, never raised
         return {**rec, "reason": str(e)}
-    rec["status"] = "ok" if all(f["verified"] for f in rec["files"]) else "hash_mismatch"
-    return rec
+    return {**rec, "status": verification_status([f["verified"] for f in rec["files"]])}
+
+
+def verification_status(verified: list[bool | None]) -> str:
+    """hash_mismatch if any False; ok if files exist and all True; otherwise unverified."""
+    if False in verified:
+        return "hash_mismatch"
+    return "ok" if verified and all(v is True for v in verified) else "unverified"
