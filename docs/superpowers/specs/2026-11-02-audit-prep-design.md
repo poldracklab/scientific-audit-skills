@@ -156,9 +156,6 @@ prepared/<Paper_Year>/
     <original_dir_name>/          # pre-existing local data directories, one per original directory
     osf_<nodeid>/                 # original OSF folder structure
     zenodo_<recordid>/
-    figshare_<id>/
-    dryad_<doi-suffix>/
-    openneuro_<dsid>/             # files under the cap; always a full file listing in manifest
     neurovault_<collectionid>/    # collection metadata and all statistical maps
 ```
 
@@ -237,9 +234,14 @@ stops. Steps, each idempotent and recorded in the manifest with status
 6. Code: `git clone --recurse-submodules`, record HEAD SHA, default branch,
    remote URL, and whether the repo has a release or Zenodo DOI mentioned in
    its README.
-7. Data: per-source fetchers with a size policy (below). Always write a
-   complete remote file listing (path, size, remote checksum when the API
-   provides one) into the manifest before deciding what to download.
+7. Data: per-source fetchers (OSF, Zenodo, NeuroVault) with a size policy
+   (below). Always write a complete remote file listing (path, size, remote
+   checksum when the API provides one) into the manifest before deciding
+   what to download. Hosts without a fetcher (figshare, Dryad, OpenNeuro,
+   bare DOIs, other) are recorded with `status: unsupported` and their URL,
+   so the auditor sees them; fetchers are added when a paper needs one.
+   (Trimmed 2026-11-02 at the user's request; the original design listed
+   figshare, Dryad and OpenNeuro fetchers.)
 8. Hash every file in the prepared folder, write `manifest.json` and
    `README.md`.
 
@@ -247,11 +249,9 @@ stops. Steps, each idempotent and recorded in the manifest with status
 
 Defaults (my call; overridable in `prep.yaml`): download any file up to
 500 MB and any single source up to 5 GB; skip video and audio. Above the caps,
-the source is `listed_only` with its full inventory in the manifest. OpenNeuro
-datasets are inventoried via the OpenNeuro GraphQL API; derivatives named in the
-paper (group maps, parcellated time series) are downloaded individually when
-under the per-file cap. NeuroVault statistical maps are always downloaded;
-they are small.
+the source is `listed_only` with its full inventory in the manifest. NeuroVault
+statistical maps are always downloaded; they are small. OpenNeuro datasets are
+recorded as `unsupported` with their URL (see step 7).
 
 ### 4. `prep.py finalize <prepared_folder>`
 

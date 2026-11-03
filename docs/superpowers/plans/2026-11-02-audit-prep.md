@@ -34,6 +34,16 @@
 4. `new_run.py` on a filesystem without clonefile (or Linux) must fall back to rsync, and a failing `xattr` must not fail the run. → tests in Task 13.
 5. `verify_run.py` must report `run_ok` when `audit/` contains arbitrary files and `run.json` exists, `run_dirty` for any other extra file, `run_modified` if a manifest file is missing or changed. → tests in Task 14.
 
+## Trim amendment (2026-11-02, approved by the user after Task 8)
+
+The user judged the fetcher breadth and task count excessive. Changes, which override the task text below where they conflict:
+
+- **Task 9** becomes "Zenodo and NeuroVault fetchers": create only `fetch_zenodo.py` and `fetch_neurovault.py` (interfaces as written in Tasks 9 and 10). Figshare, Dryad and OpenNeuro fetchers are **dropped**. `fetch_all` (Task 12) records any `data`-role link whose class has no fetcher (`figshare`, `dryad`, `openneuro`, `doi`, `other`) in `manifest["data"]` with `status: "unsupported"`, the URL, and `reason: "no fetcher for <class>; fetch manually if needed"`, so the auditor still sees it.
+- **Task 10** is merged into Task 9 (NeuroVault only; the OpenNeuro GraphQL walker is dropped).
+- **Tasks 13 and 14** are executed as one task (`new_run.py` + `verify_run.py`), one implementer dispatch, one review.
+- **Tasks 16 and 17** are executed as one batched dispatch (both audit-skill rewires), one review.
+- Task numbering below is unchanged so the ledger and brief files stay valid.
+
 ---
 
 ## File structure
@@ -59,10 +69,7 @@ audit-prep/
     fetch_osf.py     # moved from reproducibility-audit/scripts/osf_fetch.py and adapted
     prereg.py        # aspredicted / clinicaltrials / prospero + dispatcher incl. OSF registrations
     fetch_zenodo.py
-    fetch_figshare.py
-    fetch_dryad.py
-    fetch_openneuro.py
-    fetch_neurovault.py
+    fetch_neurovault.py        # figshare/dryad/openneuro dropped by the trim amendment
     manifest.py      # skeleton, hash_tree, write/load, render_readme, is_prepared
     prepare.py       # orchestration: move, apply plan, archives, documents, fetch_all, finalize
     prep.py          # CLI: init | scan | run | finalize
