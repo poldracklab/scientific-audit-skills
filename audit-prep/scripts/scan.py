@@ -11,6 +11,7 @@ import pymupdf
 import yaml
 
 import links
+import plan_check
 import residue
 from paper_doi import DoiChoice, choose_paper_doi
 
@@ -205,6 +206,4 @@ def _pending(items: list[dict], key: str) -> list[str]:
 def unresolved(plan: dict) -> list[str]:
     msgs = [] if plan.get("reviewed_by") else ["reviewed_by is not set"]
     msgs += _pending(plan.get("files", []), "path") + _pending(plan.get("links", []), "url")
-    if not any(f.get("role") == "paper" for f in plan.get("files", [])):
-        msgs.append("no file with role paper")
-    return msgs
+    return msgs + plan_check.plan_problems(plan)

@@ -131,5 +131,8 @@ layouts are often missed.
 9. **Fill `reviewed_by`** last: the model name, or `human`.
 
 `run` checks the plan and refuses to start, listing each blocker, while
-`reviewed_by` is empty, any entry has `needs_review: true`, or no file has
-`role: paper`.
+`reviewed_by` is empty, any entry has `needs_review: true`, no file or more
+than one file has `role: paper`, a file or link `role` or a link `class` is not
+one of the values listed above, a supplement `order` is missing, not an integer
+or used twice, or a `files[].path` exists neither in the folder nor already in
+the prepared layout.

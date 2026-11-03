@@ -26,6 +26,7 @@ from layout import (
     _planned,
     apply_file_plan,
     locate,
+    missing_files,
     move_into_prepared,
 )
 
@@ -66,12 +67,12 @@ def scan_folder(raw: Path, get_json: Callable) -> dict:
     return plan
 
 
-def checked_plan(folder: Path) -> dict:
+def checked_plan(folder: Path, corpus: Corpus) -> dict:
     path = folder / PLAN_NAME
     if not path.is_file():
         raise PlanError(f"no {PLAN_NAME} in {folder}; run `prep.py scan` first")
     plan = scan.load_plan(path)
-    problems = scan.unresolved(plan)
+    problems = scan.unresolved(plan) + missing_files(plan, folder, corpus)
     if problems:
         raise PlanError("prep.yaml is not ready:\n" + "\n".join(f"- {p}" for p in problems))
     return plan
@@ -102,7 +103,7 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
     folder, kind = locate(target, corpus)
     if mf.is_prepared(folder):
         raise CorpusError(f"{folder} is already finalized")
-    plan = checked_plan(folder)
+    plan = checked_plan(folder, corpus)
     if dry_run:
         print_plan(folder, plan, corpus)
         return mf.load_manifest(folder) or mf.new_manifest(folder.name, plan["reviewed_by"])

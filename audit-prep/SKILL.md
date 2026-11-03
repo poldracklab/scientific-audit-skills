@@ -145,7 +145,9 @@ Read `statements.md` and the paper text before editing. Then:
   leave it null if the paper does not say.
 - Fill `reviewed_by` last: your model name, or `human` if the user reviewed it.
 
-`run` refuses while `reviewed_by` is empty, any `needs_review` remains, or no file is `paper`;
+`run` refuses while `reviewed_by` is empty, any `needs_review` remains, there is not exactly one
+`paper`, a role or class is not a known value, supplement `order`s are not distinct integers,
+or a listed path does not exist;
 fix each listed item in `<raw>/prep.yaml`, then repeat the dry run.
 
 ## Runs

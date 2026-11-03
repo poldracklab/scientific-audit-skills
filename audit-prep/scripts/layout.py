@@ -109,6 +109,17 @@ def _planned(plan: dict, prepared: Path, corpus: Corpus) -> list[tuple[dict, Pat
     return [(f, _destination(f, prepared, corpus)) for f in entries]
 
 
+def _present(folder: Path, name: str, dest: Path | None) -> bool:
+    return (folder / name).exists() or _parked(folder, name).exists() or bool(dest and dest.exists())
+
+
+def missing_files(plan: dict, folder: Path, corpus: Corpus) -> list[str]:
+    """Plan entries found neither in `folder` nor already moved into the prepared layout."""
+    planned = _planned(plan, corpus.prepared_dir(folder.name), corpus)
+    return [f"{e['path']}: listed in prep.yaml but not found" for e, dest in planned
+            if not _present(folder, e["path"], dest)]
+
+
 def apply_file_plan(prepared: Path, plan: dict, corpus: Corpus, manifest: dict) -> None:
     previous = {e["original_path"]: e.get("extracted") for e in manifest["local_data"] if e.get("archive")}
     manifest.update(documents={"paper": None, "supplements": []}, local_data=[], unsorted=[])
