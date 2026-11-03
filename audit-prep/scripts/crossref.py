@@ -3,17 +3,11 @@
 # dependencies = []
 # ///
 """Fetch and normalise Crossref work metadata."""
-import json
-import urllib.request
 from typing import Callable
 
+from fetch_common import default_get_json
+
 API = "https://api.crossref.org/works/"
-
-
-def default_get_json(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "audit-prep/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.load(resp)
 
 
 def _first(values) -> str:

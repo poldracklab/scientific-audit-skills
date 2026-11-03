@@ -29,7 +29,7 @@ def make_run_id(rng: random.Random | None = None) -> str:
 
 def _try_clonefile(src: Path, dest: Path, run) -> bool:
     try:
-        return run(["cp", "-Rc", str(src), str(dest)], capture_output=True).returncode == 0
+        return run(["cp", "-Rc", f"{src}/.", str(dest)], capture_output=True).returncode == 0
     except OSError:
         return False
 
@@ -41,21 +41,33 @@ def _try_rsync(src: Path, dest: Path, run) -> bool:
         return False
 
 
-def _remove_partial(dest: Path) -> None:
-    if dest.exists():
-        restore_write(dest)
-        shutil.rmtree(dest, ignore_errors=True)
+def _clear_partial(dest: Path) -> None:
+    """Keep our reservation while removing only the contents we partially copied."""
+    restore_write(dest)
+    for child in dest.iterdir():
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
 
 
 def clone_tree(src: Path, dest: Path, run=subprocess.run) -> str:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if _try_clonefile(src, dest, run):
-        return "clonefile"
-    _remove_partial(dest)
-    if _try_rsync(src, dest, run):
-        return "rsync"
-    _remove_partial(dest)
-    raise CorpusError(f"could not copy {src} to {dest}")
+    try:
+        dest.mkdir()
+    except FileExistsError as exc:
+        raise CorpusError(f"destination already exists: {dest}") from exc
+    try:
+        if _try_clonefile(src, dest, run):
+            return "clonefile"
+        _clear_partial(dest)
+        if _try_rsync(src, dest, run):
+            return "rsync"
+        raise CorpusError(f"could not copy {src} to {dest}")
+    except Exception:
+        _clear_partial(dest)
+        dest.rmdir()
+        raise
 
 
 def restore_write(dest: Path) -> None:

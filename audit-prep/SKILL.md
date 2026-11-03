@@ -65,6 +65,9 @@ paper role manually. `run` derives its own statements from the selected paper; i
 the raw statements file. Do not re-scan a reviewed plan: scan
 overwrites it. Review the plan using the rules below, then:
 
+Scan rejects symbolic links before reading inputs or writing its outputs. Generated files
+replace the previous files atomically; a scan cannot write through an existing output link.
+
 ```sh
 uv run <audit-prep>/scripts/prep.py run /abs/corpus/Smith_2021 --dry-run
 uv run <audit-prep>/scripts/prep.py run /abs/corpus/Smith_2021
@@ -141,6 +144,8 @@ Run creation copies the snapshot under a random ID, restores write permission, c
 `audit/`, pins the manifest and README in `run.json`, and records the model mapping in
 `registry.jsonl` outside the run. APFS clone is attempted first, then rsync. `--runs-root`
 can place runs outside the corpus or Dropbox; the Dropbox-ignore attribute is best-effort.
+Run creation reserves a new destination before copying. Existing files, directories and
+symbolic links are refused without alteration; a failed copy cleans up only its own new run.
 
 The operator launches the auditor with only its run folder as the accessible workspace.
 Keep `registry.jsonl` and other runs inaccessible using the execution environment's access
@@ -159,6 +164,14 @@ verification therefore allows an interrupted audit to resume in the same run.
 
 ## Boundaries and practical notes
 
+- Retrieval permits HTTP(S) on ports 80/443 only, with no URL credentials. Every connection
+  resolves to public addresses and connects to those validated addresses; redirects obey
+  the same policy. Local-file URLs, internal services and implicit environment proxies are
+  blocked. Proxy-only environments need operator-managed retrieval outside this tool.
+- Git retrieval accepts HTTPS `github.com` repository-root URLs only. It pins a validated
+  address using Git's `http.curloptResolve`, disables redirects and automatic submodule
+  retrieval, and ignores global/system Git configuration and inherited Git/proxy settings.
+  Review submodule dependencies separately rather than bypassing these restrictions.
 - Prep does not extract scientific claims, assess findings, or execute authors' analyses.
 - Default data caps are 500 MB per file and 5000 MB per source; video/audio are skipped.
   Larger sources are inventoried. Raw imaging downloads are not part of routine prep.

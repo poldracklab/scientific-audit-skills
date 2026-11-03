@@ -9,6 +9,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
+from public_http import open_bytes
+
 MB = 10**6
 DEFAULT_SKIP_EXT = frozenset({"mp4", "mov", "avi", "wav", "mp3", "m4a"})
 USER_AGENT = "audit-prep/1.0"
@@ -95,8 +97,7 @@ def sha256_file(p: Path) -> str:
 
 
 def _open(req: urllib.request.Request) -> bytes:
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return resp.read()
+    return open_bytes(req)
 
 
 def file_record(f: RemoteFile, sha: str | None = None, reason: str = "") -> dict:

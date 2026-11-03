@@ -64,12 +64,17 @@ def _paper_entry(plan: dict) -> dict | None:
 
 def scan_folder(raw: Path, get_json: Callable) -> dict:
     """Write `prep.yaml` and, when a paper candidate exists, `statements.md` into the raw folder."""
+    mf.reject_symlinks(raw)
     plan = scan.build_plan(raw, get_json)
     plan["files"] = [f for f in plan["files"] if f["path"] not in OWN_FILES]
-    scan.write_plan(plan, raw / PLAN_NAME)
-    paper = _paper_entry(plan)
-    if paper:
-        write_statements(raw / paper["path"], raw / STATEMENTS)
+    with tempfile.TemporaryDirectory(dir=raw) as tmp:
+        work = Path(tmp)
+        scan.write_plan(plan, work / PLAN_NAME)
+        paper = _paper_entry(plan)
+        if paper:
+            write_statements(raw / paper["path"], work / STATEMENTS)
+        for output in work.iterdir():
+            output.replace(raw / output.name)
     return plan
 
 
