@@ -1,0 +1,47 @@
+{
+  "data": {
+    "snapshot": {
+      "id": "ds000001:1.0.0",
+      "tag": "1.0.0",
+      "created": "2016-01-01T00:00:00.000Z",
+      "hexsha": "abc123",
+      "size": 123456789,
+      "readme": "# BART\nBalloon task.",
+      "description": {
+        "Name": "Balloon Analog Risk-taking Task",
+        "BIDSVersion": "1.0.0",
+        "License": "CC0",
+        "Authors": ["A", "B"],
+        "SeniorAuthor": null,
+        "Acknowledgements": null,
+        "HowToAcknowledge": null,
+        "Funding": null,
+        "ReferencesAndLinks": null,
+        "DatasetDOI": "10.18112/openneuro.ds000001.v1.0.0",
+        "DatasetType": null,
+        "EthicsApprovals": null
+      },
+      "summary": {
+        "modalities": ["MRI"],
+        "primaryModality": "MRI",
+        "secondaryModalities": [],
+        "sessions": [],
+        "subjects": ["01", "02"],
+        "tasks": ["balloonanalogrisktask"],
+        "size": 123456789,
+        "totalFiles": 42,
+        "dataProcessed": false
+      },
+      "files": [
+        {"id": "f1", "filename": "dataset_description.json", "size": 512, "directory": false, "annexed": false, "urls": ["https://s3.example/dd.json"]},
+        {"id": "f2", "filename": "participants.tsv", "size": 300, "directory": false, "annexed": false, "urls": null},
+        {"id": "f3", "filename": "README", "size": 1200, "directory": false, "annexed": false, "urls": null},
+        {"id": "f4", "filename": "CHANGES", "size": 100, "directory": false, "annexed": false, "urls": null},
+        {"id": "f5", "filename": "sub-01", "size": 0, "directory": true, "annexed": false, "urls": null},
+        {"id": "f6", "filename": "sub-01:anat:sub-01_T1w.nii.gz", "size": 9000000, "directory": false, "annexed": true, "urls": null},
+        {"id": "f7", "filename": "derivatives", "size": 0, "directory": true, "annexed": false, "urls": null},
+        {"id": "f8", "filename": "derivatives/fmriprep/sub-01/func/x.nii.gz", "size": 5000000, "directory": false, "annexed": true, "urls": null}
+      ]
+    }
+  }
+}

@@ -1,4 +1,7 @@
+import dataclasses
+
 import links
+from conftest import _load_fixture
 from fetch_links import fetch_all
 
 
@@ -35,3 +38,18 @@ def test_listed_only_data_record_has_no_path(tmp_path, clients):
     fetch_all(tmp_path, plan, m, clients)
     rec = m["data"][0]
     assert rec["status"] == "listed_only" and rec["path"] is None
+
+
+def _openneuro_post(url, payload):
+    return _load_fixture("openneuro_snapshot.json" if "snapshot(" in payload["query"] else "openneuro_dataset.json")
+
+
+def test_openneuro_link_lands_in_data_dir(tmp_path, clients):
+    c = dataclasses.replace(clients, post_json=_openneuro_post, get_bytes=lambda u: b"x")
+    canonical = "https://openneuro.org/datasets/ds000001/versions/1.0.0"
+    link = {"url": canonical, "canonical": canonical, "class": "openneuro", "role": "data", "needs_review": False}
+    m = _manifest()
+    fetch_all(tmp_path, {"links": [link]}, m, c)
+    assert m["data"][0]["path"] == "data/openneuro_ds000001" and m["data"][0]["status"] == "ok"
+    assert m["links"][0]["fetched_to"] == "data/openneuro_ds000001"
+    assert (tmp_path / "data/openneuro_ds000001/dataset.json").exists()
