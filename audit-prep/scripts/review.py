@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass
 
 EXTRACT_PROBLEMS = {"failed", "skipped"}
 CODE_PROBLEMS = {"failed", "unsupported"}
+FETCHED_ROLES = ("prereg", "code", "data")
 PLACEHOLDER = "<why this is acceptable>"
+INCOMPLETE = ("run", "run", "incomplete", "prep.py run did not reach its final step; rerun it")
+NESTED = "nested archive is listed, not extracted; extract by hand or accept"
 
 
 class ReviewError(Exception):
@@ -50,10 +53,17 @@ def _metadata(m: dict) -> list[Problem]:
     return [Problem("metadata", "metadata crossref", "missing", _warning(m, lambda w: "crossref" in w or "doi" in w))]
 
 
+def _local_entry(m: dict, e: dict) -> Problem | None:
+    if e.get("nested_archive"):
+        return Problem("local_data", f"local_data {e['path']}", "not_extracted", NESTED)
+    if e.get("extracted") not in EXTRACT_PROBLEMS:
+        return None
+    detail = e.get("reason") or _warning(m, lambda w: w.startswith(e["path"]))
+    return Problem("local_data", f"local_data {e['path']}", e["extracted"], detail)
+
+
 def _local_data(m: dict) -> list[Problem]:
-    return [Problem("local_data", f"local_data {e['path']}", e["extracted"],
-                    e.get("reason") or _warning(m, lambda w, path=e["path"]: w.startswith(path)))
-            for e in m.get("local_data") or [] if e.get("extracted") in EXTRACT_PROBLEMS]
+    return [p for e in m.get("local_data") or [] if (p := _local_entry(m, e))]
 
 
 def _records(m: dict, key: str, kind: str, is_problem, item) -> list[Problem]:
@@ -70,15 +80,41 @@ def manifest_problems(m: dict) -> list[Problem]:
             + _records(m, "data", "data", lambda s: s != "ok", lambda r: f"data {r['source']} {r['id']}"))
 
 
-def review_manifest(m: dict, plan: dict) -> dict:
-    """Split problems into open and accepted; list acceptance keys that match nothing. Writes nothing."""
+def unfetched_links(m: dict, plan: dict) -> list[Problem]:
+    """Plan links to fetch that the manifest has no record of (added to prep.yaml after `run`)."""
+    seen = {link.get("canonical") for link in m.get("links") or []}
+    return [Problem("link", f"link {l['canonical']}", "not_fetched", "link added after run; rerun prep.py run")
+            for l in plan.get("links") or [] if l.get("role") in FETCHED_ROLES and l.get("canonical") not in seen]
+
+
+def _marked_incomplete(review: dict) -> bool:
+    return any(p.get("item") == "run" for p in review.get("problems", []) + review.get("accepted", []))
+
+
+def run_incomplete(m: dict) -> Problem | None:
+    """`run` resets `review` to None at its start and sets it only after its final step."""
+    review = m.get("review")
+    return Problem(*INCOMPLETE) if review is None or _marked_incomplete(review) else None
+
+
+def _review(problems: list[Problem], plan: dict) -> dict:
     accept = plan.get("accept_failures") or {}
-    problems = manifest_problems(m)
     items = {p.item for p in problems}
     open_ = [asdict(p) for p in problems if p.item not in accept]
     accepted = [{**asdict(p), "accepted_reason": accept[p.item]} for p in problems if p.item in accept]
     return {"status": "failed" if open_ else "ok", "problems": open_, "accepted": accepted,
             "unused": [key for key in accept if key not in items]}
+
+
+def review_manifest(m: dict, plan: dict) -> dict:
+    """Split problems into open and accepted; list acceptance keys that match nothing. Writes nothing."""
+    return _review(manifest_problems(m) + unfetched_links(m, plan), plan)
+
+
+def review_folder(m: dict, plan: dict) -> dict:
+    """`review_manifest` for a folder checked after the fact: also flags a run that never finished."""
+    incomplete = run_incomplete(m)
+    return _review(([incomplete] if incomplete else []) + manifest_problems(m) + unfetched_links(m, plan), plan)
 
 
 def _failed_lines(problems: list[dict]) -> list[str]:

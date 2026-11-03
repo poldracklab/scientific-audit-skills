@@ -64,7 +64,7 @@ def cmd_finalize(args) -> int:
 def cmd_review(args) -> int:
     folder, _ = prepare.locate(args.folder, _corpus(args))
     m, plan = prepare.load_prepared(folder)
-    result = review.review_manifest(m, plan)
+    result = review.review_folder(m, plan)
     print(review.format_review(result))
     return 0 if result["status"] == "ok" else 1
 

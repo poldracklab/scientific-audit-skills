@@ -109,7 +109,7 @@ def skill_commit(scripts_dir: Path = SCRIPTS_DIR) -> str | None:
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
-             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[])
+             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None)
     return m
 
 
@@ -159,35 +159,41 @@ def _unlock_outputs(prepared: Path) -> None:
             _set_writable(prepared / name, True)
 
 
-def load_prepared(folder: Path) -> tuple[dict, dict]:
-    """The manifest and prep.yaml of a folder that `run` has written to."""
+def _manifest(folder: Path) -> dict:
     m = mf.load_manifest(folder)
     if m is None:
         raise CorpusError(f"{folder} has no manifest.json; run `prep.py run` first")
+    return m
+
+
+def _plan(folder: Path) -> dict:
     if not (folder / PLAN_NAME).is_file():
         raise CorpusError(f"{folder} has no {PLAN_NAME}")
     plan = scan.load_plan(folder / PLAN_NAME)
     bad = plan_check.acceptance_problems(plan)
     if bad:
         raise PlanError(f"{PLAN_NAME} is not ready:\n" + "\n".join(f"- {b}" for b in bad))
-    return m, plan
+    return plan
+
+
+def load_prepared(folder: Path) -> tuple[dict, dict]:
+    """The manifest and prep.yaml of a folder that `run` has written to."""
+    return _manifest(folder), _plan(folder)
 
 
 def _gate(prepared: Path, m: dict, plan: dict) -> None:
     """Record the review; refuse while any problem is open."""
-    m["review"] = review.review_manifest(m, plan)
+    m["review"] = review.review_folder(m, plan)
     mf.write_manifest(prepared, m)
     if m["review"]["status"] != "ok":
         raise review.ReviewError(review.format_review(m["review"]))
 
 
 def finalize(prepared: Path) -> dict:
-    m = mf.load_manifest(prepared)
-    if m is None:
-        raise CorpusError(f"{prepared} has no manifest.json; run `prep.py run` first")
+    m = _manifest(prepared)
     if m.get("finalized"):
         return m
-    m, plan = load_prepared(prepared)
+    plan = _plan(prepared)
     _unlock_outputs(prepared)
     _gate(prepared, m, plan)
     m["files"] = mf.hash_tree(prepared)
