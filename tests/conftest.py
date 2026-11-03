@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "audit-prep" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "audit-consensus" / "scripts"))
 
 
 @pytest.fixture
@@ -440,3 +441,23 @@ def run_folder(prepared_corpus):
     from new_run import new_run
 
     return new_run(prepared_corpus, "Paper_2024", "model-x", rng=random.Random(1))
+
+
+def _write_audit_run(paper_runs, run_id, manifest, html, log_lines):
+    run = paper_runs / run_id
+    (run / "audit").mkdir(parents=True)
+    (run / "run.json").write_text(json.dumps({"run_id": run_id, "manifest_sha256": manifest}))
+    (run / "audit" / "audit.qmd").write_text(f"# Audit {run_id}\n")
+    if html:
+        (run / "audit" / "audit.html").write_text("<html></html>")
+    if log_lines is not None:
+        (run / "audit" / "agent_log.jsonl").write_text("".join(l + "\n" for l in log_lines))
+    return run
+
+
+@pytest.fixture
+def make_run():
+    """Factory for a minimal audit run folder under runs/<paper>/."""
+    def factory(paper_runs, run_id, manifest="m1", html=True, log_lines=None):
+        return _write_audit_run(Path(paper_runs), run_id, manifest, html, log_lines)
+    return factory
