@@ -1,3 +1,4 @@
+import shutil
 import sys
 from pathlib import Path
 
@@ -80,3 +81,62 @@ def crossref_fixture():
 
     path = Path(__file__).resolve().parent / "fixtures" / "crossref_work.json"
     return json.loads(path.read_text())
+
+
+def _nodoi_pdf(out: Path) -> None:
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.new_page().insert_text((72, 72), "A manuscript without identifiers.", fontsize=10)
+    doc.save(out)
+
+
+def _tar_dir(src: Path, out: Path) -> None:
+    import tarfile
+
+    with tarfile.open(out, "w:gz") as tar:
+        tar.add(src, arcname=src.name)
+
+
+def _shape_paper_supp(raw: Path, pdf: Path) -> None:
+    shutil.copy(pdf, raw / "paper.pdf")
+    shutil.copy(pdf, raw / "paper_sm.pdf")
+
+
+def _shape_paper_data_archive(raw: Path, pdf: Path) -> None:
+    shutil.copy(pdf, raw / "paper.pdf")
+    (raw / "mydata").mkdir()
+    (raw / "mydata" / "trials.csv").write_text("trial,rt\n1,0.5\n")
+    _tar_dir(raw / "mydata", raw / "mydata.tar.gz")
+
+
+def _shape_paper_residue(raw: Path, pdf: Path) -> None:
+    shutil.copy(pdf, raw / "paper.pdf")
+    (raw / ".venv").mkdir()
+    (raw / ".venv" / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (raw / ".git").mkdir()
+    (raw / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+    (raw / "paper.txt").write_text("text dump of paper.pdf\n")
+
+
+def _shape_paper_nodoi(raw: Path, pdf: Path) -> None:
+    _nodoi_pdf(raw / "nodoi.pdf")
+
+
+SHAPES = {
+    "paper_supp": _shape_paper_supp,
+    "paper_data_archive": _shape_paper_data_archive,
+    "paper_residue": _shape_paper_residue,
+    "paper_nodoi": _shape_paper_nodoi,
+}
+
+
+@pytest.fixture
+def raw_folder(tmp_path, fixture_pdf):
+    def make(shape: str) -> Path:
+        raw = tmp_path / "Paper_2024"
+        raw.mkdir()
+        SHAPES[shape](raw, fixture_pdf)
+        return raw
+
+    return make
