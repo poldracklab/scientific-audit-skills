@@ -43,6 +43,10 @@ def test_find_doi():
     assert find_doi("see doi:10.1126/sciadv.abf4355. Next") == "10.1126/sciadv.abf4355"
 
 
+def test_find_doi_in_doi_url():
+    assert find_doi("https://doi.org/10.1126/sciadv.abf4355") == "10.1126/sciadv.abf4355"
+
+
 def test_extract_from_text_records_pages():
     text = "a https://osf.io/abcde/.\fb https://zenodo.org/records/1"
     links = extract_links_from_text(text, "paper.txt")
@@ -54,6 +58,15 @@ def test_extract_from_pdf_includes_hidden_annotation(fixture_pdf):
     canon = {l.canonical for l in extract_links_from_pdf(fixture_pdf)}
     assert "https://github.com/lab/repo" in canon
     assert "https://osf.io/x4c56" in canon
+
+
+def test_pdf_annotation_only_uri_is_extracted(fixture_pdf):
+    links = {l.canonical: l for l in extract_links_from_pdf(fixture_pdf)}
+    assert links["https://github.com/lab/hidden-tool"].found_in[0]["page"] == 1
+
+
+def test_pdf_mailto_annotation_is_ignored(fixture_pdf):
+    assert not [l for l in extract_links_from_pdf(fixture_pdf) if "author@" in l.canonical]
 
 
 def test_merge_unions_found_in():
