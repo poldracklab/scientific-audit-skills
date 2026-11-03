@@ -83,7 +83,8 @@ LAYOUT = [
 def test_run_produces_layout(reviewed_raw):
     m = _run(reviewed_raw)
     p = _prepared(reviewed_raw)
-    assert not reviewed_raw.raw.exists()
+    assert reviewed_raw.raw.exists()
+    assert (reviewed_raw.raw / "paper.pdf").read_bytes() == (p / "paper/paper.pdf").read_bytes()
     for rel in LAYOUT:
         assert (p / rel).exists(), rel
     assert not (p / "statements.md").exists()
@@ -164,12 +165,13 @@ def test_fetch_exception_recorded_as_warning(reviewed_raw, monkeypatch):
     assert any("zenodo down" in w for w in m["warnings"])
 
 
-def test_residue_moved_to_unsorted(reviewed_residue):
+def test_residue_stays_in_raw_folder(reviewed_residue):
     m = _run(reviewed_residue)
-    unsorted = reviewed_residue.corpus.unsorted_dir(reviewed_residue.raw.name)
+    unsorted = reviewed_residue.raw
     assert (unsorted / ".venv").exists() and (unsorted / "paper.txt").is_file()
     assert {u["original_path"] for u in m["unsorted"]} == {".git", ".venv", "paper.txt"}
     assert (_prepared(reviewed_residue) / "paper/paper.txt").read_text() != "text dump of paper.pdf\n"
+    assert not (_prepared(reviewed_residue) / ".venv").exists()
 
 
 def test_local_data_and_preexisting_archive(reviewed_data_archive):

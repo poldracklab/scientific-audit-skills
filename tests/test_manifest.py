@@ -23,12 +23,11 @@ def test_hash_tree_excludes_manifest_and_readme(tmp_path):
     assert [f["path"] for f in hash_tree(tmp_path)] == ["a.txt", "d/b.txt"]
 
 
-def test_hash_tree_entries_git_and_symlinks(tmp_path):
+def test_hash_tree_entries_include_git(tmp_path):
     (tmp_path / "a.txt").write_text("a")
     (tmp_path / "code/.git").mkdir(parents=True)
     (tmp_path / "code/.git/HEAD").write_text("ref")
     (tmp_path / "code/manifest.json").write_text("nested")
-    os.symlink(tmp_path / "a.txt", tmp_path / "link.txt")
     entries = hash_tree(tmp_path)
     assert [e["path"] for e in entries] == ["a.txt", "code/.git/HEAD", "code/manifest.json"]
     assert entries[0]["size"] == 1

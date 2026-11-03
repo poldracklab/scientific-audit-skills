@@ -18,7 +18,7 @@ def test_audit_prep_skill_has_no_zsh_path_loop():
 
 def test_reproducibility_audit_has_intake_and_new_layout():
     text = (SKILLS / "reproducibility-audit/SKILL.md").read_text()
-    assert "## Intake" in text and "verify_run.py" in text and "new_run.py" in text and "audit-prep" in text
+    assert "## Intake" in text and "verify_run.py" in text and "audit-prep" in text
     for old in ["osf_fetch.py", "figs_paper/", "prereg.txt", "~/Projects/<topic>_audits"]: assert old not in text, old
     for new in ["paper/paper.txt", "paper/pages/", "data/osf_", "preregistration/", "audit/audit.qmd", "registry.jsonl"]: assert new in text, new
 
@@ -65,8 +65,7 @@ def test_manifest_doc_matches_emitted_keys():
     assert "decision" not in links_row
 
 
-CWD_RULE = ("Start the audit session with the corpus root as the working directory so "
-            "`.claude/settings.json` applies; then `cd` into the run folder.")
+AUDIT_SKILLS = ["reproducibility-audit", "neuroimaging-validity-audit"]
 
 
 def _intake(skill: str) -> str:
@@ -78,11 +77,69 @@ def _flat(text: str) -> str:
     return " ".join(text.split())
 
 
-def test_session_cwd_rule_stated_in_prep_and_both_intakes():
-    assert CWD_RULE in _flat((SKILLS / "audit-prep/SKILL.md").read_text())
-    for skill in ["reproducibility-audit", "neuroimaging-validity-audit"]:
-        assert CWD_RULE in _flat(_intake(skill)), skill
+def test_auditors_require_operator_created_runs():
+    for skill in AUDIT_SKILLS:
+        intake = _flat(_intake(skill))
+        assert "Only `run_ok` permits auditing" in intake, skill
+        assert "operator" in intake and "before the evaluated session" in intake, skill
+        assert "new_run.py" not in intake and "--model" not in intake, skill
+        assert "invoke the `audit-prep` skill" not in intake, skill
+        assert ".claude/settings.json" not in intake, skill
     assert _intake("reproducibility-audit") == _intake("neuroimaging-validity-audit")
+
+
+def test_operator_setup_keeps_registry_outside_auditor_access():
+    text = _flat((SKILLS / "audit-prep/SKILL.md").read_text())
+    assert "before the evaluated session" in text
+    assert "registry.jsonl" in text and "inaccessible" in text
+    assert "run folder" in text and "operator" in text
+    assert ".claude/settings.json" not in text
+
+
+def test_both_audits_allow_additional_evidence_and_retries():
+    for skill in AUDIT_SKILLS:
+        text = _flat((SKILLS / skill / "SKILL.md").read_text())
+        assert "## Additional evidence" in text, skill
+        assert "may retrieve additional relevant evidence" in text, skill
+        assert "retry sources that prep could not retrieve" in text, skill
+        assert "audit/additional-evidence/" in text, skill
+        assert "prepared inputs unchanged" in text, skill
+        assert "supplied evidence" in text and "discovered evidence" in text, skill
+
+
+def test_reports_have_additional_evidence_provenance_table():
+    for skill in AUDIT_SKILLS:
+        for relative in ["references/report.md", "templates/audit_template.qmd"]:
+            text = (SKILLS / skill / relative).read_text()
+            assert "Source URL | Retrieval date | Local file | Findings" in text, (skill, relative)
+            assert "audit/additional-evidence/" in text, (skill, relative)
+
+
+def test_prep_documents_copy_selection_and_immutable_raw_inputs():
+    text = _flat((SKILLS / "audit-prep/SKILL.md").read_text())
+    assert "Raw folders stay in place" in text
+    assert "`skip` and `unsorted`" in text and "excluded" in text
+    assert "authoritative" in text and "fresh draft" in text
+    assert "symbolic links" in text
+    assert "unsorted/<Paper_Year>/" not in text
+
+
+def test_structured_conversion_is_explicit_and_documented():
+    for relative in ["audit-prep/SKILL.md", "audit-prep/references/prep-yaml.md"]:
+        text = (SKILLS / relative).read_text()
+        assert "structured_conversion" in text and "true" in text and "false" in text
+        assert "corpus" in text
+    assert "not_requested" in (SKILLS / "audit-prep/references/manifest.md").read_text()
+
+
+def test_reproducibility_specialized_recipes_are_loaded_when_relevant():
+    text = (SKILLS / "reproducibility-audit/SKILL.md").read_text()
+    assert "references/analysis-recipes.md" in text
+    assert "One-factor selection-model tipping point" not in text
+    recipes = SKILLS / "reproducibility-audit/references/analysis-recipes.md"
+    assert recipes.is_file()
+    for guidance in ["lavaan labels", "Lee bounds", "Outcome × finding matrix"]:
+        assert guidance in recipes.read_text(), guidance
 
 
 def _unsupported_host_sentence(text: str) -> str:

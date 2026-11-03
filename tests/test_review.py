@@ -130,3 +130,12 @@ def test_plan_hash_ignores_accept_failures(clean):
     clean["plan_sha256"] = plan_sha256({"files": [], "links": []})
     assert review_folder(clean, PLAN)["problems"] == []
     assert plan_sha256(PLAN) == plan_sha256({**PLAN, "accept_failures": {}})
+
+
+def test_structural_problems_cannot_be_accepted_by_review_api(clean):
+    from review import review_folder
+
+    result = review_folder(clean, {"accept_failures": {"run": "acknowledged", "plan": "acknowledged"}})
+    assert result["status"] == "failed"
+    assert {p["item"] for p in result["problems"]} == {"run", "plan"}
+    assert result["accepted"] == []
