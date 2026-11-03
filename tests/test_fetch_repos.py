@@ -35,6 +35,34 @@ def test_neurovault_downloads_all_pages(neurovault_api, tmp_path):
     dest = tmp_path / "neurovault_1234"
     r = fetch_neurovault("1234", dest, neurovault_api, lambda u: b"nii")
     assert r.status == "ok" and r.source == "neurovault" and r.path == str(dest)
-    assert (dest / "map1.nii.gz").read_bytes() == b"nii" and (dest / "map2.nii.gz").exists()
+    assert (dest / "1_map1.nii.gz").read_bytes() == b"nii" and (dest / "2_map2.nii.gz").exists()
     assert (dest / "collection.json").exists()
     assert len(json.loads((dest / "images.json").read_text())) == 2
+
+
+IMAGES_URL = "https://neurovault.org/api/collections/1234/images/?format=json"
+MEDIA = "https://neurovault.org/media/images/1234"
+
+
+def _image(iid: int, folder: str = "a") -> dict:
+    return {"id": iid, "file": f"{MEDIA}/{folder}/map.nii.gz"}
+
+
+def _router(pages: dict):
+    return lambda url: {"id": 1234} if url.endswith("/1234/") else pages[url]
+
+
+def test_neurovault_same_basename_does_not_collide(tmp_path):
+    pages = {IMAGES_URL: {"next": None, "results": [_image(1, "a"), _image(2, "b")]}}
+    data = {f"{MEDIA}/a/map.nii.gz": b"one", f"{MEDIA}/b/map.nii.gz": b"two"}
+    r = fetch_neurovault("1234", tmp_path / "nv", _router(pages), data.__getitem__)
+    paths = [f["path"] for f in r.files]
+    assert paths == ["1_map.nii.gz", "2_map.nii.gz"]
+    assert [(tmp_path / "nv" / p).read_bytes() for p in paths] == [b"one", b"two"]
+    assert r.files[0]["sha256"] != r.files[1]["sha256"]
+
+
+def test_neurovault_pagination_loop_terminates(tmp_path):
+    pages = {IMAGES_URL: {"next": IMAGES_URL, "results": [_image(1)]}}
+    r = fetch_neurovault("1234", tmp_path / "nv", _router(pages), lambda u: b"x")
+    assert r.reason == "pagination loop detected" and len(r.files) == 1
