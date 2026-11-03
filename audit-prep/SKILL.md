@@ -240,3 +240,7 @@ Blinding rules:
   paths, and never `cd` into a raw folder before running prep.
 - A finalized prepared folder is read-only and `run` refuses it ("already finalized"). Check
   `prep.py review` and the warnings before finalizing.
+- Folders finalized before the failure gate existed must be re-finalized: their manifest has
+  no clean `review`, so `new_run.py` refuses them and `verify_run.py` reports `not_prepared`.
+  Make the folder writable (`chmod -R u+w /abs/corpus/prepared/Smith_2021`), rerun
+  `prep.py run`, then `prep.py review` and `prep.py finalize`.

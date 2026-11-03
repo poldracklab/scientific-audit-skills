@@ -11,7 +11,7 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 | `prepared_at` | UTC ISO timestamp. |
 | `prep_versions` | `skill`: the audit-prep git short commit (null when the skill is not a git checkout); tool versions `pdftotext`, `pdftoppm`, `pandoc`, `zstd`, `docling`, `git` from `docs.tool_versions()` (null when a tool is missing). `{}` until filled. |
 | `prepared_by` | Model name or `human`; copied from `prep.yaml` `reviewed_by`. |
-| `finalized` | `false` until preparation completes; `is_prepared` requires `true`. |
+| `finalized` | `false` until preparation completes (`run` resets it to `false`); `is_prepared` requires `true` and a `review` with `status: ok`, so a folder finalized before the failure gate existed is not prepared (`verify_run.py` says "manifest has no clean prep review; run prep.py review"): make it writable, rerun `run`, then `finalize`. |
 | `metadata` | `{doi, title, authors[], journal, published, relations[]}` or null if not fetched. |
 | `documents` | `{paper, supplements[]}`. `paper` is null until set. |
 | `links` | `[{url, canonical, found_in:[{file,page}], class, role, needs_review, reason, status, fetched_to}]`: the reviewed `prep.yaml` link plus its fetch `status` and `fetched_to`. |
@@ -42,7 +42,7 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 
 OSF (`source: osf`, `path` `data/osf_<id>`): `meta` says what the id named. A project is `{kind: "project", node_id, title}` and `files` is its whole osfstorage listing; a single linked file is `{kind: "file", node_id, node_url}` (the project that holds it, `https://osf.io/<node_id>`) and `files` is that one file at its path in the project. An id that is a registration is `failed` with reason "https://osf.io/<id> is a registration; set role: prereg"; any other kind is `failed` with reason "osf <kind>, not a project or file"; a failed lookup records the error text and leaves `meta` empty.
 
-OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as metadata only: `files` holds the root-level files (`dataset_description.json`, `participants.tsv`, `README`, `CHANGES`, ...); `meta` is `{scope: "metadata", tag, dataset_doi, name, subjects, modalities, total_files, size}`; the folder holds `dataset.json` (dataset, snapshot, description and summary), `README` and `files.json`, the full snapshot listing `{path, size, directory, annexed, url}`. Imaging files are never downloaded. `status` is `ok` when every root-level file downloaded, else `partial`.
+OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as metadata only: `files` holds the root-level files (`dataset_description.json`, `participants.tsv`, `README`, `CHANGES`, ...); `meta` is `{scope: "metadata", tag, dataset_doi, name, subjects, modalities, total_files, size}`; the folder holds `dataset.json` (dataset, snapshot, description and summary), `README` and `files.json`, the full snapshot listing `{path, size, directory, annexed, url}`. Imaging files are never downloaded; the README's Data table says `metadata only` in the Reason column. `status` is `ok` when every root-level file downloaded, else `partial`.
 
 ## Status vocabularies
 

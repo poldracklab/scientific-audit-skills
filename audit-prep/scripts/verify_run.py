@@ -8,9 +8,10 @@ import json
 import sys
 from pathlib import Path
 
-from manifest import hash_tree, is_os_metadata, load_manifest
+from manifest import has_clean_review, hash_tree, is_os_metadata, load_manifest
 
 ALLOWED_EXTRA = ("run.json", "audit")
+NO_REVIEW = "manifest has no clean prep review; run prep.py review"
 
 
 def _is_allowed_extra(rel: str) -> bool:
@@ -53,6 +54,8 @@ def verify(folder: Path) -> tuple[str, list[str]]:
     m = load_manifest(folder)
     if m is None or not m.get("finalized"):
         return "not_prepared", ["no finalized manifest.json"]
+    if not has_clean_review(m):
+        return "not_prepared", [NO_REVIEW]
     if not (folder / "run.json").is_file():
         return "prepared_not_run", []
     return _compare(folder, m)

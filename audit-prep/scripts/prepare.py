@@ -109,7 +109,7 @@ def skill_commit(scripts_dir: Path = SCRIPTS_DIR) -> str | None:
 def _start_manifest(prepared: Path, plan: dict, clients: Clients) -> dict:
     m = mf.load_manifest(prepared) or mf.new_manifest(prepared.name, plan["reviewed_by"])
     m.update(prepared_by=plan["reviewed_by"], data_collection=plan.get("data_collection"),
-             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None,
+             prep_versions={**clients.tool_versions(), "skill": skill_commit()}, warnings=[], review=None, finalized=False,
              plan_sha256=review.plan_sha256(plan))
     return m
 
@@ -194,7 +194,7 @@ def _gate(prepared: Path, m: dict, plan: dict) -> None:
 
 def finalize(prepared: Path) -> dict:
     m = _manifest(prepared)
-    if m.get("finalized"):
+    if mf.is_prepared(prepared):
         return m
     plan = _plan(prepared)
     _unlock_outputs(prepared)

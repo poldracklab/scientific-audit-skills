@@ -80,9 +80,17 @@ def load_manifest(folder: Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def has_clean_review(m: dict) -> bool:
+    review = m.get("review")
+    return isinstance(review, dict) and review.get("status") == "ok"
+
+
 def is_prepared(folder: Path) -> bool:
+    """Finalized under this schema with a clean prep review (folders finalized before the gate are not)."""
     m = load_manifest(folder)
-    return bool(m) and m.get("schema_version") == SCHEMA_VERSION and m.get("finalized") is True
+    if not m or m.get("schema_version") != SCHEMA_VERSION:
+        return False
+    return m.get("finalized") is True and has_clean_review(m)
 
 
 def _cell(value) -> str:
@@ -145,8 +153,13 @@ def _counts(files: list[dict]) -> str:
     return f"{done} of {len(files)}"
 
 
+def _data_reason(d: dict) -> str | None:
+    scope = "metadata only" if (d.get("meta") or {}).get("scope") == "metadata" else None
+    return "; ".join(r for r in (scope, d.get("reason")) if r) or None
+
+
 def _data(m: dict) -> list[str]:
-    rows = [[d.get("source"), d.get("id"), d.get("status"), _counts(d.get("files") or []), d.get("reason")]
+    rows = [[d.get("source"), d.get("id"), d.get("status"), _counts(d.get("files") or []), _data_reason(d)]
             for d in m.get("data") or []]
     body = _table(["Source", "ID", "Status", "Downloaded", "Reason"], rows) if rows else []
     return _section("Data", body, "none found")
