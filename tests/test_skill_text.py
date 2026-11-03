@@ -172,3 +172,38 @@ def test_review_exit_codes_and_incomplete_run_documented():
                if l.startswith("| `review`"))
     for word in ["`run`", "`link`", "`not_extracted`"]:
         assert word in row, word
+
+
+CONSENSUS = SKILLS / "audit-consensus"
+CONSENSUS_SECTIONS = [
+    "## AI-generated — not for publication", "## Preliminary & unvetted analysis",
+    "# Bottom line", "# Claims", "# Confirmed issues", "# Disputed and refuted findings",
+    "# Agreed minor issues", "# Noticed during adjudication", "# Finding cross-walk {.appendix}",
+    "# Adjudication analyses {.appendix}", "# Provenance {.appendix}", "# Session info {.appendix}",
+]
+
+
+def test_consensus_skill_frontmatter_and_rules():
+    text = (CONSENSUS / "SKILL.md").read_text()
+    assert text.startswith("---\nname: audit-consensus\n") and "description:" in text
+    for phrase in ["inputs.json", "registry.jsonl", "Disputed", "Converged", "untested",
+                   "partly confirmed", "weak or unsupported", "strong → moderate", "cross-walk"]:
+        assert phrase in text, phrase
+    assert "letter grade" not in text.lower()
+
+
+def test_consensus_template_sections_in_order():
+    t = (CONSENSUS / "templates/consensus_template.qmd").read_text()
+    positions = [t.index(s) for s in CONSENSUS_SECTIONS]
+    assert positions == sorted(positions)
+
+
+def test_consensus_template_is_blind():
+    t = (CONSENSUS / "templates/consensus_template.qmd").read_text()
+    assert "run_models.json" in t and "Model mapping attached after the consensus run." in t
+    assert "MODEL" not in t
+
+
+def test_consensus_scripts_dir_contents():
+    names = sorted(p.name for p in (CONSENSUS / "scripts").iterdir() if p.name != "__pycache__")
+    assert names == ["consensus.py", "consensus.sh", "discover.py", "redact.py"]
