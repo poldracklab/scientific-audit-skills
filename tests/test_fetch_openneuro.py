@@ -99,3 +99,24 @@ def test_root_download_failure_is_partial(tmp_path, post_router):
 def test_file_url_fallback_uses_colon_paths():
     entry = {"filename": "derivatives/fmriprep/x.json", "urls": None}
     assert file_url("ds000001", "1.0.0", entry) == _root_url("derivatives:fmriprep:x.json")
+
+
+def _post_with_extra_root(entry: dict):
+    def post_json(url, payload):
+        if "snapshot(" not in payload["query"]:
+            return _load_fixture("openneuro_dataset.json")
+        snap = _load_fixture("openneuro_snapshot.json")
+        snap["data"]["snapshot"]["files"].append(entry)
+        return snap
+
+    return post_json
+
+
+def test_reserved_root_names_are_not_downloaded(tmp_path):
+    dest = tmp_path / "on"
+    entry = {"id": "f9", "filename": "files.json", "size": 10, "directory": False, "annexed": False, "urls": None}
+    r = _fetch(dest, _post_with_extra_root(entry))
+    assert isinstance(json.loads((dest / "files.json").read_text()), list)
+    rec = next(f for f in r.files if f["path"] == "files.json")
+    assert rec["downloaded"] is False and rec["reason"] == "name reserved for prep metadata"
+    assert r.status == "partial"
