@@ -18,7 +18,7 @@ execute:
 
 ::: {.callout-important}
 ## AI-generated — not for publication
-Code and prose were written by an AI agent (MODEL) under human direction and have not been verified line by line. Do not publish, circulate or cite. Check all claims about the authors' analyses independently before communicating them.
+Code and prose were written by an AI agent (identity recorded in the run registry) under human direction and have not been verified line by line. Do not publish, circulate or cite. Check all claims about the authors' analyses independently before communicating them.
 :::
 
 ::: {.callout-warning}
@@ -38,8 +38,8 @@ set.seed(1)
 fmt  <- function(x, d = 2) formatC(x, format = "f", digits = d)
 fmtp <- function(p) ifelse(p < .001, "<.001", formatC(p, format = "f", digits = 3))
 
-# Read the POSTED data (path relative to this paper's folder)
-dat <- read.csv("osf/PATH/TO/DATA.csv")
+# Read the POSTED data (paths relative to audit/, where this file lives)
+dat <- read.csv("../data/osf_ID/PATH/TO/DATA.csv")
 # Rebuild any variables the scripts expect but the posted file lacks (document each one in the appendix).
 ```
 
@@ -92,10 +92,10 @@ dat <- read.csv("osf/PATH/TO/DATA.csv")
 
 | Item | Source | Status |
 |---|---|---|
-| Paper | `../papers/FILE.pdf` | read in full; SI obtained? |
-| Preregistration | OSF registration `ID`, registered DATE (before/after data collection?) | SHA-256 verified? |
-| Data | `osf/...` (N rows × K cols) + codebook | downloaded |
-| Code | `osf/...` | runs on posted data? reads unposted files? |
+| Paper | `../paper/paper.pdf` | read in full; SI obtained? |
+| Preregistration | `../preregistration/SOURCE_ID/`, registered DATE (manifest `date_registered`; before/after data collection?) | manifest `hash_verified`? |
+| Data | `../data/osf_ID/...` (N rows × K cols) + codebook | downloaded |
+| Code | `../github/OWNER__REPO/...` or `../data/osf_ID/...` | runs on posted data? reads unposted files? |
 
 Data/code gaps and every reconstructed variable: 
 
@@ -129,5 +129,6 @@ Registration date relative to data collection:
 
 ```{r}
 #| label: session
+cat("Run ID:", jsonlite::fromJSON("../run.json")$run_id, "\n")  # from run.json; never the model name
 sessionInfo()
 ```

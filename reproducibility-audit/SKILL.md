@@ -1,15 +1,16 @@
 ---
 name: reproducibility-audit
 description: >
-  Workflow for a computational reproducibility audit of a published paper: download the
-  authors' data/code (usually OSF), reproduce the reported statistics and figures in an R +
-  Quarto notebook, compare the paper against its preregistration, and assess the strength of
-  evidence (attrition, clustering, multiplicity, specification errors, outcome selection).
-  Use whenever the user asks to "reproduce", "audit", "check the stats/figures of", or "see
-  whether the prereg was followed in" a published paper, or wants a judgment about how strong
-  a paper's evidence is given its data. Covers folder organization for multi-paper audits, the
-  report template with AI-generated disclaimers, an OSF fetch/prereg-hash script, a checklist
-  of errors that recur in published analyses, and the robustness toolkit. Pairs with
+  Workflow for a computational reproducibility audit of a published paper: work from a folder
+  prepared by audit-prep (paper text, authors' data/code, preregistration already fetched),
+  reproduce the reported statistics and figures in an R + Quarto notebook, compare the paper
+  against its preregistration, and assess the strength of evidence (attrition, clustering,
+  multiplicity, specification errors, outcome selection). Use whenever the user asks to
+  "reproduce", "audit", "check the stats/figures of", or "see whether the prereg was followed
+  in" a published paper, or wants a judgment about how strong a paper's evidence is given its
+  data. Covers intake of prepared run folders, the blinded report template with AI-generated
+  disclaimers, a checklist of errors that recur in published analyses, and the robustness
+  toolkit. Pairs with
   adversarial-protocol-review (the "what could manufacture this result?" mindset) and
   quarto-book (rendering conventions).
 ---
@@ -27,51 +28,60 @@ Work through the stages in order. Verify every number you write against rendered
 The report itself follows the contract in `references/report.md`: a verdict-first body of at
 most 1500 prose words, with ledgers, full robustness output and session details in the appendix.
 
-## Folder organization (multi-paper by default)
+## Intake
 
-Audits tend to come in batches (e.g. several papers from one lab), so start with this layout
-even for a single paper:
+1. Run `uv run ~/.claude/skills/audit-prep/scripts/verify_run.py <folder>` on the folder you were given.
+2. `not_prepared` → invoke the `audit-prep` skill on it (scan, review `prep.yaml`, run, finalize), then continue. Warn the user that prepping from inside an audit makes prep model-dependent; the manifest records `prepared_by`.
+3. `prepared_not_run` → run `uv run ~/.claude/skills/audit-prep/scripts/new_run.py <Paper_Year> --model <your model name> --root <corpus root>`, `cd` into the printed path, continue.
+4. `run_dirty` or `run_modified` → stop and report the details; do not audit a contaminated folder.
+5. `run_ok` → read `README.md`, then `manifest.json`, then proceed. Never read `registry.jsonl` or any other run folder. All persistent output goes under `audit/` in the run folder (`audit/audit.qmd`, `audit/audit.html`, caches, working notes). Nothing inside the run folder may name the auditing model.
+
+## Folder organization
+
+You work in a run folder made by `audit-prep`, a blinded copy of the prepared paper folder:
 
 ```
-~/Projects/<topic>_audits/
-  papers/                    # source PDFs, untouched (the user may drop them here)
-  <firstauthor>/             # one folder per paper, lowercase first-author name
-    <firstauthor>_audit.qmd
-    <firstauthor>_audit.html # embed-resources: true -> single shareable-in-private file
-    osf/                     # raw OSF download, original folder structure preserved
-    paper.txt                # pdftotext -layout of the paper
-    prereg.txt               # pdftotext -layout of the prereg (if any)
-    figs_paper/              # pdftoppm page renders, for viewing figures/CONSORT
+runs/<Paper_Year>/<run_id>/       # your cwd
+  manifest.json  README.md  run.json
+  paper/
+    paper.pdf  paper.txt  paper.md          # pdftotext -layout; docling Markdown
+    pages/p-001.png ...                     # every page rendered
+    figures/  tables/                       # crops and CSVs, indexed in figures.md / tables.md
+    metadata.json  links.json  statements.md
+    supplement_1.pdf  supplement_1.txt ...
+  preregistration/<source>_<id>/            # e.g. osf_<regid>/, clinicaltrials_<nct>/
+  github/<owner>__<repo>/                   # authors' code at the commit in the manifest
+  data/
+    <name>/                                 # local data directories as supplied
+    osf_<id>/  zenodo_<id>/  neurovault_<id>/
+  audit/                                    # all your output goes here
 ```
 
-- Keep `.qmd` paths relative to the paper folder (`osf/...`), so the folder can be moved.
-- If the user says a PDF is "in the folder" and it isn't, search for it (`mdfind -name`) and confirm it matches the OSF project title before using it. Don't duplicate PDFs that already live in `papers/`.
-- **Privacy:** these reports critique named colleagues' work. Render locally only. Do **not** publish them as Artifacts, to Quarto Pub, or anywhere else unless the user explicitly asks. Deliver the HTML with `SendUserFile`.
+- All persistent output goes under `audit/`: the report `audit/audit.qmd`, its render `audit/audit.html` (embed-resources: true, a single file), caches and working notes. Never write elsewhere in the run folder; `verify_run.py` treats it as contamination.
+- Keep `.qmd` paths relative to `audit/` (`../data/osf_<id>/...`, `../paper/paper.txt`), so the run folder can be moved.
+- **Privacy:** these reports critique named colleagues' work. Render locally only. Do **not** publish them as Artifacts, to Quarto Pub, or anywhere else unless the user explicitly asks. Deliver `audit/audit.html` with `SendUserFile`.
 
-## Stage 1: Gather materials
+## Stage 1: Read the manifest
 
-```bash
-# materials are prepared by the audit-prep skill (see Intake)
-pdftotext -layout paper.pdf paper.txt
-pdftoppm -r 110 -png -f <p> -l <p> paper.pdf figs_paper/p   # then Read the PNGs to see figures/CONSORT
-```
+Prep has already fetched and converted everything; this stage records what it found.
 
-- **Prereg DOIs** like `10.17605/OSF.IO/X4C56` resolve to `osf.io/x4c56`. Check both `/v2/registrations/<id>` and the project's `registrations` count; the `files` command prints it.
-- **Record `date_registered` against the end of data collection.** A "prereg" registered after data collection is not prospective, even if it predates cleaning. Also note whether a self-described clinical trial is in a trial registry.
-- **Confirm the prereg PDF you read is the frozen one.** Compare the SHA-256 the registration stores with the file you downloaded; the script does this.
+- **Preregistration:** `manifest.json` lists each registration with `date_registered`, `hash_verified` and `status`; `data_collection` gives the start, end, page and a verbatim quote from the methods (or null). The registration files are under `preregistration/<source>_<id>/`. A `hash_mismatch` or `unverified` status means the file may not be the frozen version; say so.
+- **Record `date_registered` against the end of data collection.** A "prereg" registered after data collection is not prospective, even if it predates cleaning. Also note whether a self-described clinical trial is in a trial registry (a `clinicaltrials_<nct>/` or other registry folder under `preregistration/`).
+- **Materials:** the paper text is `paper/paper.txt` (Markdown: `paper/paper.md`); page renders are `paper/pages/p-NNN.png` (Read them to see figures and CONSORT diagrams); figure crops are in `paper/figures/`, tables in `paper/tables/`; data/code/prereg statements are in `paper/statements.md` and every link in the paper is in `paper/links.json`. The authors' code is under `github/`; downloaded data under `data/<source>_<id>/` (e.g. `data/osf_<id>/`) and local data under `data/<name>/`.
+- Before calling material absent, check the manifest's `data` and `code` statuses (`listed_only`, `failed`, `unsupported`) and report what prep could not retrieve.
 - If a project has **no registration**, say so explicitly and switch stage 5 to "analytic flexibility".
 
 ## Stage 2: Read everything before computing
 
-- **Read the whole paper.** List every inferential statistic in Results and every figure with its caption claims (n's, what the error bands are, which panel is which).
-- **Read the prereg in full**, noting page numbers. Record:
+- **Read the whole paper** (`paper/paper.txt`, supplements beside it). List every inferential statistic in Results and every figure with its caption claims (n's, what the error bands are, which panel is which).
+- **Read the prereg in full** (the files under `preregistration/<source>_<id>/`), noting page numbers. Record:
   - the **outcome hierarchy** (primary / secondary / exploratory);
   - the stated hypotheses and analysis models;
   - the mediator and outcome **timepoints**;
   - exclusion rules, ITT vs per-protocol, the planned sample size;
   - any explicit "exploratory / hypothesis-generating" labels;
   - intervention components (e.g. a booster session the paper later omits).
-- **Read the authors' scripts:**
+- **Read the authors' scripts** (under `github/` or the data folders, e.g. `data/osf_<id>/`):
   - Which files do they read? Are those files posted?
   - What are the exact model formulas, contrasts and labels?
   - How do the plotting calls handle axis limits?
@@ -88,7 +98,7 @@ pdftoppm -r 110 -png -f <p> -l <p> paper.pdf figs_paper/p   # then Read the PNGs
 - **Refit the authors' exact specification first.** Copy their formula, contrasts, reference levels and covariates, even where you think they are wrong. Then tabulate `claim | paper | reproduced` with a bold **Status:** line: *exact reproduction*, *minor discrepancy* (quantify it and give the likely cause, e.g. one missing observation), or *major discrepancy*.
 - **Match the p-value method** (sjPlot/Wald vs lmerTest Satterthwaite). Report which you used.
 - **Sign conventions.** These often differ because of reference levels; say so rather than calling it an error.
-- **PDF extraction drops minus signs.** Before flagging a CI like "[0.04, 0.42]" around a negative estimate as an error, look at the rendered page image.
+- **PDF extraction drops minus signs.** Before flagging a CI like "[0.04, 0.42]" around a negative estimate as an error, look at the rendered page image in `paper/pages/`.
 
 ## Stage 4: Reproduce the figures
 
@@ -160,7 +170,7 @@ Use the matrix to answer the user's likely question: *is this a real effect that
 
 ## Stage 9: Write, render, and **verify prose against output**
 
-- Follow `references/report.md` and start from `templates/audit_template.qmd`. The body is
+- Follow `references/report.md` and copy `templates/audit_template.qmd` to `audit/audit.qmd`. The body is
   bottom line → claims table → findings that change a conclusion → minor findings table →
   robustness table → assessment, at most 1500 prose words; materials, prereg table, full
   reproduction and robustness output, finding detail, clean checks, verification and session
@@ -168,7 +178,7 @@ Use the matrix to answer the user's likely question: *is this a real effect that
 - Keep the two disclaimer callouts (`callout-important` "AI-generated — not for publication";
   `callout-warning` "Preliminary & unvetted analysis").
 - Put computed numbers in inline `r` expressions wherever feasible. Static markdown tables only for the paper's own numbers.
-- Render with `quarto render <file>.qmd` and grep for `Output created`. Expensive bootstraps (2000 draws × several lavaan models) take a few minutes.
+- Render with `quarto render audit/audit.qmd` (output `audit/audit.html`) and grep for `Output created`. Expensive bootstraps (2000 draws × several lavaan models) take a few minutes.
 - **After every render, extract the text and check each claim.** Strip tags with a short Python script and read the tables. Drafted prose has repeatedly asserted things the tables contradicted ("only one hit", "dropping any other cell leaves it intact", mislabelled bounds). Also extract the embedded PNGs (base64 in the HTML) and look at them, e.g. to catch empty labels.
 - Things that cut in the authors' favour (e.g. the tipping point needing an implausible ρ; a more consistent pattern for one factor) belong in the report too.
 
