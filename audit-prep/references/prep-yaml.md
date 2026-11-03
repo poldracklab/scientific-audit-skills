@@ -104,9 +104,14 @@ links <ids>; fetch the whole project?"). Decide whether the auditor needs the
 whole project. When the parent project is fetched, set the individual file
 links to `role: skip` with reason `contained in osf_<node id>` to avoid
 duplicate copies (keeping both is harmless but noisy); otherwise set the
-parent to `role: skip`. If resolution failed (offline, private or unknown id),
-the link keeps the scanner's guess "osf project or registration?" with
-`needs_review: true`. A registration left at `role: data` ends `failed` at
+parent to `role: skip`. A project already linked in any URL form (for example
+`https://osf.io/<node id>/files/osfstorage`) gets no derived link. If
+resolution failed (offline, private or unknown id), the link keeps what the
+scanner set from its URL: a plain `https://osf.io/<id>` link keeps "osf
+project or registration?" with `needs_review: true`, and a
+`.../registrations/<id>` URL stays pre-set to `role: prereg` with
+`needs_review: false`. A guid of another kind (preprint, user) is left
+unchanged the same way. A registration left at `role: data` ends `failed` at
 `run` with reason "https://osf.io/<id> is a registration; set role: prereg".
 
 ## Review rules

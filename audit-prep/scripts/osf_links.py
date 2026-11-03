@@ -34,6 +34,11 @@ def _parent_link(node_id: str, children: list[dict]) -> dict:
             "reason": f"parent project of osf file links {ids}; fetch the whole project?"}
 
 
+def _listed_ids(plan_links: list[dict]) -> set[str]:
+    """OSF ids already linked, whatever the URL form (`https://osf.io/<id>/files/osfstorage` too)."""
+    return {osf_id(link["canonical"]) for link in plan_links if link["class"] == "osf"}
+
+
 def annotate_osf_links(plan_links: list[dict], get_json) -> list[dict]:
     """Resolve osf guids to project, registration or file; add each file's parent project for review."""
     out, children = [], {}
@@ -45,5 +50,5 @@ def annotate_osf_links(plan_links: list[dict], get_json) -> list[dict]:
             if info["type"] == "files":
                 children.setdefault(info["node_id"], []).append(link)
         out.append(link)
-    known = {link["canonical"] for link in out}
-    return out + [_parent_link(n, c) for n, c in children.items() if f"https://osf.io/{n}" not in known]
+    known = _listed_ids(out)
+    return out + [_parent_link(n, c) for n, c in children.items() if n not in known]

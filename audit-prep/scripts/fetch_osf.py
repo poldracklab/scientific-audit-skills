@@ -47,7 +47,7 @@ def _file_guid(data: dict) -> dict:
     a = data["attributes"]
     hashes = (a.get("extra") or {}).get("hashes") or {}
     return {"type": "files", "node_id": data["relationships"]["target"]["data"]["id"], "name": a["name"],
-            "path": a["materialized_path"].lstrip("/"), "size": a.get("size") or 0,
+            "path": (a.get("materialized_path") or a["name"]).lstrip("/"), "size": a.get("size") or 0,
             "download": data["links"]["download"], "sha256": hashes.get("sha256")}
 
 
