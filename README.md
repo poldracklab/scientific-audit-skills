@@ -69,8 +69,9 @@ You are now ready to run the audit. Open the relevant coding agent within the ru
 ```
 Use the reproducibility-audit skill to audit the paper in this run folder.
 
-The current directory is an audit-prep run for Pooldrack_2026. Start with the skill's intake step (verify_run.py on this folder); proceed only if it reports run_ok.
+The current directory is an audit-prep run for Poldrack_2026. Start with the skill's intake step (verify_run.py on this folder); proceed only if it reports run_ok.
 
 Write all output under audit/ and leave every other file in the run folder unchanged.
 
 Render audit/audit.html locally and give me the file path when done. Do not publish it anywhere.
+```
