@@ -18,3 +18,20 @@ def test_zenodo_doi_link_is_fetched_by_the_zenodo_fetcher(tmp_path, clients):
     rec = m["data"][0]
     assert rec["source"] == "zenodo" and rec["path"] == "data/zenodo_123456"
     assert rec["status"] != "unsupported"
+
+
+def test_non_github_code_link_is_unsupported_with_url(tmp_path, clients):
+    m = _manifest()
+    fetch_all(tmp_path, {"links": [_link("https://gitlab.com/lab/code", role="code")]}, m, clients)
+    rec = m["code"][0]
+    assert rec["status"] == "unsupported" and rec["url"] == "https://gitlab.com/lab/code"
+    assert rec["reason"] == "code links are fetched from GitHub only; fetch manually"
+    assert m["links"][0]["status"] == "unsupported"
+
+
+def test_listed_only_data_record_has_no_path(tmp_path, clients):
+    m = _manifest()
+    plan = {"size_policy": {"max_source_mb": 0}, "links": [_link("https://osf.io/abcde", role="data")]}
+    fetch_all(tmp_path, plan, m, clients)
+    rec = m["data"][0]
+    assert rec["status"] == "listed_only" and rec["path"] is None

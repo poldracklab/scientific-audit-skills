@@ -28,10 +28,22 @@ def test_policy_skips_video_and_big_files():
     assert p.allows(RemoteFile("a.csv", 10, "u"))
 
 
-def test_select_all_when_under_cap():
+def test_select_drops_skipped_extension_as_partial():
     files = [RemoteFile("a.csv", 10, "u"), RemoteFile("b.mp4", 10, "u")]
     sel, status = select_downloads(files, SizePolicy())
-    assert [f.path for f in sel] == ["a.csv"] and status == "ok"
+    assert [f.path for f in sel] == ["a.csv"] and status == "partial"
+
+
+def test_select_all_when_under_cap_is_ok():
+    files = [RemoteFile("a.csv", 10, "u"), RemoteFile("b.txt", 10, "u")]
+    sel, status = select_downloads(files, SizePolicy())
+    assert [f.path for f in sel] == ["a.csv", "b.txt"] and status == "ok"
+
+
+def test_select_drops_oversized_file_as_partial():
+    files = [RemoteFile("big.nii", 600 * 10**6, "u"), RemoteFile("small.csv", 10, "u")]
+    sel, status = select_downloads(files, SizePolicy())
+    assert [f.path for f in sel] == ["small.csv"] and status == "partial"
 
 
 def test_select_listed_only_when_source_too_big():

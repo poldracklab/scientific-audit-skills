@@ -14,7 +14,7 @@ def test_zenodo_id():
 def test_zenodo_lists_and_downloads(zenodo_fixture, tmp_path):
     dest = tmp_path / "zenodo_123456"
     r = fetch_zenodo("123456", dest, SizePolicy(), lambda u: zenodo_fixture, lambda u: b"d")
-    assert r.status == "ok" and r.meta["version_doi"] == "10.5281/zenodo.123456"
+    assert r.status == "partial" and r.meta["version_doi"] == "10.5281/zenodo.123456"
     assert r.meta["concept_doi"] == "10.5281/zenodo.123455" and r.meta["title"] == "Trial data"
     assert all(f["remote_hash"].startswith("md5:") for f in r.files)
     assert {f["path"]: f["downloaded"] for f in r.files}["demo.mp4"] is False
@@ -60,6 +60,18 @@ def test_neurovault_same_basename_does_not_collide(tmp_path):
     assert paths == ["1_map.nii.gz", "2_map.nii.gz"]
     assert [(tmp_path / "nv" / p).read_bytes() for p in paths] == [b"one", b"two"]
     assert r.files[0]["sha256"] != r.files[1]["sha256"]
+
+
+def test_neurovault_failed_image_download_is_partial(tmp_path):
+    pages = {IMAGES_URL: {"next": None, "results": [_image(1, "a"), _image(2, "b")]}}
+
+    def get_bytes(url):
+        if "/b/" in url:
+            raise OSError("reset")
+        return b"one"
+
+    r = fetch_neurovault("1234", tmp_path / "nv", _router(pages), get_bytes)
+    assert r.status == "partial" and [f["downloaded"] for f in r.files] == [True, False]
 
 
 def test_neurovault_pagination_loop_terminates(tmp_path):

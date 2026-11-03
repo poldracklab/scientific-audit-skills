@@ -13,7 +13,7 @@ def test_list_osf_files_follows_pagination_and_folders(osf_api):
 
 def test_fetch_osf_files_applies_policy(osf_api, tmp_path):
     r = fetch_osf_files("abcde", tmp_path / "osf_abcde", SizePolicy(), osf_api, lambda u: b"content")
-    assert r.status == "ok" and {f["path"]: f["downloaded"] for f in r.files}["video.mp4"] is False
+    assert r.status == "partial" and {f["path"]: f["downloaded"] for f in r.files}["video.mp4"] is False
     assert (tmp_path / "osf_abcde/data/trials.csv").read_bytes() == b"content"
 
 
@@ -43,7 +43,7 @@ def test_fetch_osf_files_skips_unsafe_name(osf_router, osf_fixture, osf_entry, t
     by_path = {f["path"]: f for f in r.files}
     assert by_path["../evil.txt"]["downloaded"] is False and by_path["../evil.txt"]["reason"]
     assert by_path["data/trials.csv"]["downloaded"] is True and by_path["readme.txt"]["downloaded"] is True
-    assert not (tmp_path / "evil.txt").exists() and r.status == "ok"
+    assert not (tmp_path / "evil.txt").exists() and r.status == "partial"
 
 
 def test_fetch_osf_files_keeps_listing_when_one_download_fails(osf_api, tmp_path):
@@ -54,7 +54,7 @@ def test_fetch_osf_files_keeps_listing_when_one_download_fails(osf_api, tmp_path
 
     r = fetch_osf_files("abcde", tmp_path / "osf", SizePolicy(), osf_api, get_bytes)
     by_path = {f["path"]: f for f in r.files}
-    assert sorted(by_path) == ["data/trials.csv", "readme.txt", "video.mp4"] and r.status == "ok"
+    assert sorted(by_path) == ["data/trials.csv", "readme.txt", "video.mp4"] and r.status == "partial"
     trials = by_path["data/trials.csv"]
     assert trials["downloaded"] is False and "connection reset" in trials["reason"]
     assert by_path["readme.txt"]["downloaded"] is True and (tmp_path / "osf/readme.txt").read_bytes() == b"content"
@@ -82,3 +82,26 @@ def test_registration_mismatch_wins_over_unhashed(osf_router, osf_fixture, osf_e
     listing["data"].append(osf_entry("p2", "notes.txt", 3, {}))
     r = fetch_osf_registration("x4c56", tmp_path / "r", osf_router({REG_FILES: listing}), lambda u: b"tampered")
     assert [f["verified"] for f in r["files"]] == [False, None] and r["status"] == "hash_mismatch"
+
+
+def _registration(osf_fixture, **attrs):
+    reg = osf_fixture("osf_registration.json")
+    reg["data"]["attributes"].update(attrs)
+    return reg
+
+
+def test_embargoed_registration_reason(osf_router, osf_fixture, tmp_path):
+    get_json = osf_router({REG: _registration(osf_fixture, embargoed=True), REG_FILES: _listing([])})
+    r = fetch_osf_registration("x4c56", tmp_path / "r", get_json, lambda u: b"")
+    assert (r["status"], r["reason"]) == ("unverified", "embargoed")
+
+
+def test_withdrawn_registration_reason(osf_router, osf_fixture, tmp_path):
+    get_json = osf_router({REG: _registration(osf_fixture, withdrawn=True), REG_FILES: _listing([])})
+    r = fetch_osf_registration("x4c56", tmp_path / "r", get_json, lambda u: b"")
+    assert (r["status"], r["reason"]) == ("unverified", "withdrawn")
+
+
+def test_registration_without_files_reason(osf_router, tmp_path):
+    r = fetch_osf_registration("x4c56", tmp_path / "r", osf_router({REG_FILES: _listing([])}), lambda u: b"")
+    assert (r["status"], r["reason"]) == ("unverified", "no files in registration")

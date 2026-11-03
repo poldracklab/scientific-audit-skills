@@ -114,7 +114,7 @@ def test_links_augmented_with_fetch_status(reviewed_raw):
     m = _run(reviewed_raw)
     by_canonical = {link["canonical"]: link for link in m["links"]}
     assert by_canonical["https://osf.io/abcde"]["fetched_to"] == "data/osf_abcde"
-    assert by_canonical["https://osf.io/abcde"]["status"] == "ok"
+    assert by_canonical["https://osf.io/abcde"]["status"] == "partial"
     assert by_canonical["https://github.com/lab/hidden-tool"]["status"] == "skipped"
     assert by_canonical["https://github.com/lab/hidden-tool"]["fetched_to"] is None
     relation = [link for link in m["links"] if "10.1101/2020.01.01.123456" in link["url"]]
@@ -284,3 +284,18 @@ def test_finalize_failure_leaves_folder_unprepared(reviewed_raw, monkeypatch, wr
     monkeypatch.setattr(manifest, "render_readme", original)
     m = finalize(p)
     assert m["finalized"] and is_prepared(p) and not os.access(p / "manifest.json", os.W_OK)
+
+
+SCRIPTS = REPO / "audit-prep" / "scripts"
+
+
+def test_prep_versions_records_skill_commit(reviewed_raw):
+    head = subprocess.run(["git", "-C", str(SCRIPTS), "rev-parse", "--short", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    assert head and _run(reviewed_raw)["prep_versions"]["skill"] == head
+
+
+def test_skill_commit_none_outside_a_repo(tmp_path):
+    from prepare import skill_commit
+
+    assert skill_commit(tmp_path) is None

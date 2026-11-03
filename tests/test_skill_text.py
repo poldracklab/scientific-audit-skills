@@ -43,3 +43,23 @@ def test_review_rules_check_doi_is_not_a_deposit_doi():
     for doc in ["audit-prep/SKILL.md", "audit-prep/references/prep-yaml.md"]:
         text = (SKILLS / doc).read_text()
         assert "confirm `doi` is the article's own DOI, not a deposit DOI" in text, doc
+
+
+PREREG_DOCS = ["audit-prep/references/manifest.md", "reproducibility-audit/SKILL.md",
+               "reproducibility-audit/templates/audit_template.qmd"]
+
+
+def test_prereg_docs_name_status_and_per_file_verified():
+    for doc in PREREG_DOCS:
+        text = (SKILLS / doc).read_text()
+        assert "hash_verified" not in text and "verified" in text, doc
+
+
+def test_manifest_doc_matches_emitted_keys():
+    text = (SKILLS / "audit-prep/references/manifest.md").read_text()
+    versions = next(l for l in text.splitlines() if l.startswith("| `prep_versions`"))
+    for key in ["skill", "pdftotext", "pdftoppm", "pandoc", "zstd", "docling", "git"]:
+        assert f"`{key}`" in versions, key
+    assert "poppler" not in versions
+    links_row = next(l for l in text.splitlines() if l.startswith("| `links`"))
+    assert "decision" not in links_row
