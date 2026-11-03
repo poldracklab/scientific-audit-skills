@@ -15,6 +15,7 @@ CTGOV_API = "https://clinicaltrials.gov/api/v2/studies/"
 NCT_RE = re.compile(r"NCT\d{8}")
 SAFE_ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 NOT_FOUND = (404, 410)
+ASPREDICTED_HTML = "HTML returned, not a PDF; the link may need its view token"
 
 
 def _result(source: str, ident: str | None, path, date=None, status="ok", reason="") -> dict:
@@ -51,8 +52,11 @@ def _save(dest: Path, name: str, data: bytes) -> None:
 def fetch_aspredicted(url: str, dest: Path, get_bytes) -> dict:
     ident = aspredicted_id(url)
     data = get_bytes(url)
-    _save(dest, f"{ident}.pdf" if data.startswith(b"%PDF") else f"{ident}.html", data)
-    return _result("aspredicted", ident, str(dest))
+    if data.startswith(b"%PDF"):
+        _save(dest, f"{ident}.pdf", data)
+        return _result("aspredicted", ident, str(dest))
+    _save(dest, f"{ident}.html", data)
+    return _result("aspredicted", ident, str(dest), status="unverified", reason=ASPREDICTED_HTML)
 
 
 def fetch_clinicaltrials(nct: str, dest: Path, get_json) -> dict:
