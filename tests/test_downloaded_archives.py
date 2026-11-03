@@ -2,6 +2,7 @@
 import io
 import tarfile
 import zipfile
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +10,19 @@ import pytest
 from conftest import ZENODO
 from prepare import run_prep
 from review import review_manifest
+
+
+def test_extraction_accepts_relative_prepared_path(tmp_path, monkeypatch):
+    from downloaded_archives import extract_downloaded_archives
+
+    monkeypatch.chdir(tmp_path)
+    root = Path("prepared/data/source")
+    root.mkdir(parents=True)
+    (root / "data.zip").write_bytes(zip_bytes({"data.csv": "fixture"}))
+    manifest = {"warnings": [], "data": [{"path": "data/source", "files": [
+        {"path": "data.zip", "downloaded": True}]}]}
+    extract_downloaded_archives(Path("prepared"), manifest, [], None)
+    assert (root / "data/data.csv").read_text() == "fixture"
 
 
 def zip_bytes(files):
