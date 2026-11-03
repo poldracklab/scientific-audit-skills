@@ -1,102 +1,111 @@
-#!/usr/bin/env python3
-"""Fetch an OSF project's files and/or inspect an OSF registration (preregistration).
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""List and download OSF project files; fetch and hash-verify OSF registrations."""
+import json
+import re
+from pathlib import Path
 
-Usage:
-  osf_fetch.py files <node_id> [--out osf] [--list-only] [--skip-ext mp4,mov,avi,wav,zip] [--max-mb 200]
-  osf_fetch.py registration <reg_id> [--out .]
-
-`files` walks osfstorage recursively (following pagination), prints size/path/url,
-and downloads everything not skipped, preserving the folder structure under --out.
-
-`registration` prints the registration's title, date_registered, type, and summary,
-lists attached files with the SHA-256 frozen in the registration, downloads them,
-and verifies the hash (so you know the prereg PDF you read is the registered one).
-Also reports whether a project has registrations / child components.
-"""
-import argparse, hashlib, json, os, sys, urllib.request
+from fetch_common import FetchResult, RemoteFile, SizePolicy, download, select_downloads, sha256_file
 
 API = "https://api.osf.io/v2"
+OSF_ID_RE = re.compile(r"osf\.io/([a-z0-9]{5})(?=[/?#]|$)", re.I)
 
 
-def get(url):
-    with urllib.request.urlopen(url) as r:
-        return json.load(r)
+def osf_id(canonical: str) -> str | None:
+    m = OSF_ID_RE.search(canonical)
+    return m.group(1).lower() if m else None
 
 
-def walk(url, rel=""):
+def _remote_file(entry: dict, rel: str) -> RemoteFile:
+    a = entry["attributes"]
+    hashes = (a.get("extra") or {}).get("hashes") or {}
+    return RemoteFile(f"{rel}{a['name']}", a.get("size") or 0, entry["links"]["download"], hashes.get("sha256"))
+
+
+def walk_listing(url: str | None, get_json, rel: str = "") -> list[RemoteFile]:
+    """Walk an osfstorage listing, following `links.next` and recursing into folders."""
+    files = []
     while url:
-        d = get(url)
-        for f in d["data"]:
-            a = f["attributes"]
-            p = os.path.join(rel, a["name"])
-            if a["kind"] == "folder":
-                yield from walk(f["relationships"]["files"]["links"]["related"]["href"], p)
+        page = get_json(url)
+        for entry in page["data"]:
+            if entry["attributes"]["kind"] == "folder":
+                child = entry["relationships"]["files"]["links"]["related"]["href"]
+                files += walk_listing(child, get_json, f"{rel}{entry['attributes']['name']}/")
             else:
-                yield a["size"], p, f["links"]["download"]
-        url = d["links"].get("next")
+                files.append(_remote_file(entry, rel))
+        url = page["links"].get("next")
+    return files
 
 
-def download(url, dest):
-    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
-    with urllib.request.urlopen(url) as r, open(dest, "wb") as out:
-        out.write(r.read())
+def list_osf_files(node_id: str, get_json) -> list[RemoteFile]:
+    return walk_listing(f"{API}/nodes/{node_id}/files/osfstorage/", get_json)
 
 
-def sha256(fn):
-    h = hashlib.sha256()
-    with open(fn, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def _download_all(files: list[RemoteFile], dest: Path, get_bytes) -> dict[str, str]:
+    return {f.path: sha256_file(download(f.url, dest / f.path, get_bytes)) for f in files}
 
 
-def cmd_files(a):
-    node = get(f"{API}/nodes/{a.node}/")["data"]["attributes"]
-    print(f"# {node['title']}  (created {node['date_created'][:10]}, public={node['public']})")
-    for kind in ("registrations", "children"):
-        n = get(f"{API}/nodes/{a.node}/{kind}/")["links"]["meta"]["total"]
-        print(f"# {kind}: {n}")
-    skip = {e.strip().lower().lstrip(".") for e in a.skip_ext.split(",") if e.strip()}
-    for size, p, url in walk(f"{API}/nodes/{a.node}/files/osfstorage/"):
-        ext = p.rsplit(".", 1)[-1].lower() if "." in p else ""
-        mb = (size or 0) / 1e6
-        skipped = ext in skip or mb > a.max_mb
-        print(f"{'SKIP' if skipped else 'GET '} {mb:9.2f} MB  {p}  {url}")
-        if not (a.list_only or skipped):
-            download(url, os.path.join(a.out, p))
+def _file_record(f: RemoteFile, sha: str | None) -> dict:
+    return {"path": f.path, "size": f.size, "remote_hash": f.remote_hash, "downloaded": sha is not None, "sha256": sha}
 
 
-def cmd_registration(a):
-    d = get(f"{API}/registrations/{a.reg}/")["data"]["attributes"]
-    print(f"title:           {d['title']}")
-    print(f"date_registered: {d['date_registered']}")
-    print(f"date_created:    {d['date_created']}")
-    print(f"type:            {d.get('registration_supplement')}")
-    print(f"withdrawn:       {d.get('withdrawn')}   embargoed: {d.get('embargoed')}")
-    meta = d.get("registered_meta") or {}
-    for k, v in meta.items():
-        val = v.get("value") if isinstance(v, dict) else v
-        if isinstance(val, str) and val.strip():
-            print(f"[{k}] {val.strip()[:800]}")
-        for x in (v.get("extra") or []) if isinstance(v, dict) else []:
-            if isinstance(x, dict) and "sha256" in x:
-                name = x.get("selectedFileName") or x.get("data", {}).get("name")
-                print(f"attached: {name}  sha256={x['sha256']}")
-    # files stored on the registration itself
-    for size, p, url in walk(f"{API}/registrations/{a.reg}/files/osfstorage/"):
-        dest = os.path.join(a.out, p)
-        download(url, dest)
-        print(f"downloaded {dest} ({(size or 0)/1e6:.2f} MB) sha256={sha256(dest)}")
-    print("Compare the downloaded sha256 with the 'attached' sha256 above.")
+def fetch_osf_files(node_id: str, dest: Path, policy: SizePolicy, get_json, get_bytes) -> FetchResult:
+    try:
+        files = list_osf_files(node_id, get_json)
+        selected, status = select_downloads(files, policy)
+        hashes = _download_all(selected, dest, get_bytes)
+    except Exception as e:  # any API or download error is recorded, never raised
+        return FetchResult("osf", node_id, str(dest), "failed", [], str(e))
+    return FetchResult("osf", node_id, str(dest), status, [_file_record(f, hashes.get(f.path)) for f in files])
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    sub = ap.add_subparsers(dest="cmd", required=True)
-    f = sub.add_parser("files"); f.add_argument("node"); f.add_argument("--out", default="osf")
-    f.add_argument("--list-only", action="store_true")
-    f.add_argument("--skip-ext", default="mp4,mov,avi,mkv,wav,mp3,zip")
-    f.add_argument("--max-mb", type=float, default=200)
-    r = sub.add_parser("registration"); r.add_argument("reg"); r.add_argument("--out", default=".")
-    a = ap.parse_args()
-    {"files": cmd_files, "registration": cmd_registration}[a.cmd](a)
+def node_registration_count(node_id: str, get_json) -> int:
+    return get_json(f"{API}/nodes/{node_id}/registrations/")["links"]["meta"]["total"]
+
+
+def registration_attributes(reg_id: str, get_json) -> dict:
+    """Return the registration's attributes; raises if `reg_id` is not a registration."""
+    return get_json(f"{API}/registrations/{reg_id}/")["data"]["attributes"]
+
+
+def _summary(attrs: dict) -> dict:
+    return {
+        "title": attrs.get("title"),
+        "date_registered": attrs.get("date_registered"),
+        "type": attrs.get("registration_supplement"),
+        "withdrawn": attrs.get("withdrawn"),
+    }
+
+
+def _verify(f: RemoteFile, dest: Path, get_bytes) -> dict:
+    actual = sha256_file(download(f.url, dest / f.path, get_bytes))
+    verified = f.remote_hash is not None and f.remote_hash == actual
+    return {"name": f.path, "sha256_expected": f.remote_hash, "sha256_actual": actual, "verified": verified}
+
+
+def _registration_record(reg_id: str, dest: Path) -> dict:
+    empty = dict.fromkeys(["title", "date_registered", "type", "withdrawn"])
+    return {"source": "osf", "id": reg_id, "path": str(dest), **empty, "files": [], "status": "failed", "reason": ""}
+
+
+def _write_metadata(dest: Path, rec: dict, attrs: dict) -> None:
+    """registration.json: summary, frozen and actual hashes, and the full attributes."""
+    meta = {k: rec[k] for k in ("id", "title", "date_registered", "type", "withdrawn", "files")}
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "registration.json").write_text(json.dumps({**meta, "attributes": attrs}, indent=2))
+
+
+def fetch_osf_registration(reg_id: str, dest: Path, get_json, get_bytes) -> dict:
+    rec = _registration_record(reg_id, dest)
+    try:
+        attrs = registration_attributes(reg_id, get_json)
+        rec.update(_summary(attrs))
+        listing = walk_listing(f"{API}/registrations/{reg_id}/files/osfstorage/", get_json)
+        rec["files"] = [_verify(f, dest, get_bytes) for f in listing]
+        _write_metadata(dest, rec, attrs)
+    except Exception as e:  # any API or download error is recorded, never raised
+        return {**rec, "reason": str(e)}
+    rec["status"] = "ok" if all(f["verified"] for f in rec["files"]) else "hash_mismatch"
+    return rec
