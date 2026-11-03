@@ -193,3 +193,48 @@ def test_dir_of_csv_is_data(tmp_path):
 def test_empty_dir_needs_review(tmp_path):
     (tmp_path / "empty").mkdir()
     assert classify_files(tmp_path)[0]["needs_review"] is True
+
+
+@pytest.fixture
+def settled_plan(raw_folder, crossref_fixture):
+    plan = build_plan(raw_folder("paper_supp"), get_json=lambda u: crossref_fixture)
+    for item in plan["files"] + plan["links"]:
+        item["needs_review"] = False
+    plan["reviewed_by"] = "human"
+    assert unresolved(plan) == []
+    return plan
+
+
+def _file(plan, path):
+    return next(f for f in plan["files"] if f["path"] == path)
+
+
+def test_unresolved_rejects_unknown_file_role(settled_plan):
+    _file(settled_plan, "paper_sm.pdf")["role"] = "supplementary"
+    assert unresolved(settled_plan) == [
+        "paper_sm.pdf: unknown role 'supplementary' (allowed: paper, supplement, data, archive, unsorted, skip)"]
+
+
+def test_unresolved_rejects_unknown_link_role_and_class(settled_plan):
+    link = settled_plan["links"][0]
+    link["role"], link["class"] = "dataset", "dropbox"
+    msgs = unresolved(settled_plan)
+    assert f"{link['url']}: unknown role 'dataset' (allowed: prereg, code, data, unknown, skip)" in msgs
+    assert any(m.startswith(f"{link['url']}: unknown class 'dropbox'") for m in msgs)
+
+
+@pytest.mark.parametrize("order", [None, "1", 1.5, True])
+def test_unresolved_rejects_bad_supplement_order(settled_plan, order):
+    _file(settled_plan, "paper_sm.pdf")["order"] = order
+    assert unresolved(settled_plan) == ["paper_sm.pdf: supplement order must be an integer"]
+
+
+def test_unresolved_rejects_duplicate_supplement_order(settled_plan):
+    settled_plan["files"].append({"path": "other_sm.pdf", "role": "supplement", "needs_review": False,
+                                  "reason": "r", "order": 1})
+    assert unresolved(settled_plan) == ["supplement order 1 is used more than once"]
+
+
+def test_unresolved_rejects_two_papers(settled_plan):
+    _file(settled_plan, "paper_sm.pdf").update(role="paper", order=None)
+    assert unresolved(settled_plan) == ["more than one file with role paper"]

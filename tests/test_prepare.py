@@ -44,6 +44,27 @@ def test_run_refuses_unreviewed_plan(prepped_raw):
     assert prepped_raw.raw.exists()
 
 
+GHOST = {"path": "ghost.csv", "role": "data", "needs_review": False, "reason": "typo", "order": None}
+
+
+def test_run_refuses_plan_listing_a_missing_file(reviewed_raw):
+    _edit_plan(reviewed_raw, lambda plan: plan["files"].append(dict(GHOST)))
+    with pytest.raises(PlanError, match="ghost.csv: listed in prep.yaml but not found"):
+        _run(reviewed_raw)
+    assert reviewed_raw.raw.exists()
+
+
+def test_rerun_accepts_files_already_in_prepared_layout(reviewed_raw):
+    _run(reviewed_raw)
+    prepared = _prepared(reviewed_raw)
+    plan = load_plan(prepared / "prep.yaml")
+    plan["files"].append(dict(GHOST))
+    write_plan(plan, prepared / "prep.yaml")
+    with pytest.raises(PlanError) as err:
+        run_prep(prepared, reviewed_raw.corpus, reviewed_raw.clients)
+    assert str(err.value).count("not found") == 1 and "ghost.csv" in str(err.value)
+
+
 def test_dry_run_moves_nothing(reviewed_raw, capsys):
     run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients, dry_run=True)
     out = capsys.readouterr().out
