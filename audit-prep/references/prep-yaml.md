@@ -50,9 +50,12 @@ Roles:
 - `paper`: the published article. Exactly one is expected. The scanner picks
   the PDF with a DOI on its first two pages and no supplement marker in its
   name, preferring the longest; Crossref must report `journal-article`.
-- `supplement`: supplementary material. Name markers (`supp`, `_sm`, `som`,
-  `mmc`, `esm`, `moesm`, `supplement`, case-insensitive) or a PDF with the same
-  DOI as the paper. Numbered by filename.
+- `supplement`: supplementary material, any file type. A filename stem token
+  (split on `-`, `_`, `.`, whitespace; case-insensitive) that is a marker
+  (`sm`, `som`, `mmc`, `esm`, `moesm`, `supp`, `supplement`), a marker plus
+  digits (`mmc1`, `MOESM1`), or a word starting with `supp` (`supplementary`);
+  or a PDF with the same DOI as the paper. Author names such as `Somerville`
+  do not match. Numbered by filename.
 - `data`: a directory or file the authors shared as data or code.
 - `archive`: `.zip .tar .tar.gz .tgz .tar.zst .zst .7z`. Confirm it holds the authors' material, not residue.
 - `unsorted`: residue (`.git`, `.venv`, `.pytest_cache`, `__pycache__`,

@@ -3,6 +3,7 @@
 # dependencies = ["pyyaml", "pymupdf"]
 # ///
 """Scan a raw paper folder into a draft prep.yaml plan for review."""
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -14,6 +15,7 @@ import links
 
 RESIDUE_NAMES = {".git", ".venv", ".pytest_cache", "__pycache__", ".DS_Store"}
 SUPPLEMENT_MARKERS = ("supp", "_sm", "som", "mmc", "esm", "moesm", "supplement")
+TOKEN_SPLIT = re.compile(r"[-_.\s]+")
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz", ".tar.zst", ".zst", ".7z")
 DOI_PAGES = 2
 SIZE_POLICY = {
@@ -33,14 +35,23 @@ def _entry(path: str, role: str, reason: str, needs_review: bool = False) -> dic
     return {"path": path, "role": role, "needs_review": needs_review, "reason": reason, "order": None}
 
 
+def _token_matches(token: str, marker: str) -> bool:
+    """A token is a marker, a marker plus digits (mmc1), or a supp* word (supplementary)."""
+    bare = marker.lstrip("_")
+    return bool(re.fullmatch(re.escape(bare) + r"\d*", token)) or (bare == "supp" and token.startswith(bare))
+
+
+def _matching_marker(name: str) -> str | None:
+    tokens = TOKEN_SPLIT.split(Path(name).stem.lower())
+    return next((m for m in SUPPLEMENT_MARKERS for t in tokens if _token_matches(t, m)), None)
+
+
 def has_supplement_marker(name: str) -> bool:
-    stem = Path(name).stem.lower()
-    return any(marker in stem for marker in SUPPLEMENT_MARKERS)
+    return _matching_marker(name) is not None
 
 
 def _marker_reason(name: str) -> str:
-    stem = Path(name).stem.lower()
-    return "name marker " + next(m for m in SUPPLEMENT_MARKERS if m in stem)
+    return "name marker " + _matching_marker(name)
 
 
 def pdf_info(pdf: Path) -> tuple[str | None, int]:
@@ -67,6 +78,8 @@ def _classify_other(entry: Path) -> dict:
         return _entry(entry.name, "archive", "archive extension")
     if entry.is_dir():
         return _entry(entry.name, "data", "directory")
+    if has_supplement_marker(entry.name):
+        return _entry(entry.name, "supplement", _marker_reason(entry.name))
     return _entry(entry.name, "data", "unrecognized file; data or residue?", True)
 
 
@@ -117,7 +130,11 @@ def _confirm_paper(paper: dict, doi: str | None, get_json: Callable[[str], dict]
     if doi is None:
         paper.update(needs_review=True, reason="no doi found on first pages")
         return
-    kind = crossref.fetch_metadata(doi, get_json)["type"]
+    try:
+        kind = crossref.fetch_metadata(doi, get_json)["type"]
+    except (OSError, ValueError) as err:
+        paper.update(needs_review=True, reason=f"crossref lookup failed: {err}")
+        return
     if kind == "journal-article":
         paper.update(needs_review=False, reason="DOI resolves to journal-article")
     else:
