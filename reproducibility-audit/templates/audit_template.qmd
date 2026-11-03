@@ -93,7 +93,7 @@ dat <- read.csv("../data/osf_ID/PATH/TO/DATA.csv")
 | Item | Source | Status |
 |---|---|---|
 | Paper | `../paper/paper.pdf` | read in full; SI obtained? |
-| Preregistration | `../preregistration/SOURCE_ID/`, registered DATE (manifest `date_registered`; before/after data collection?) | manifest `hash_verified`? |
+| Preregistration | `../preregistration/SOURCE_ID/`, registered DATE (manifest `date_registered`; before/after data collection?) | manifest `status`; per-file `verified`? |
 | Data | `../data/osf_ID/...` (N rows × K cols) + codebook | downloaded |
 | Code | `../github/OWNER__REPO/...` or `../data/osf_ID/...` | runs on posted data? reads unposted files? |
 
