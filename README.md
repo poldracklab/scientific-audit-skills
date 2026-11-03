@@ -2,6 +2,11 @@
 
 Poldracklab agent skills repository
 
+Released under an MIT license.
+
+Adapted from Mike Frank's [claude-skills](https://github.com/mcfrank/claude-skills/tree/main).
+
+
 ## Skills
 
 - `adversarial-protocol-review`: adversarial review of an experiment, eval or analysis for what could manufacture its result.
