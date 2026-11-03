@@ -154,3 +154,21 @@ def test_cli_requires_corpus_root(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["prepare", "P"]) == 2
     assert ".autoaudit-root" in capsys.readouterr().err
+
+
+def test_identical_provenance_outside_audit_is_allowed(corpus):
+    for run_id in MODELS:
+        run = corpus / "runs" / "P" / run_id
+        (run / "README.md").write_text("- Prepared by: claude-opus-5-5\n")
+        (run / "prep.yaml").write_text("reviewed_by: claude-opus-5-5\n")
+        (run / "manifest.json").write_text('{"prepared_by": "claude-opus-5-5"}')
+    out = prepare(corpus, "P", now=NOW, rng=random.Random(1))
+    assert out.is_dir()
+    assert (corpus / "runs" / "P" / "a1" / "README.md").read_text() == "- Prepared by: claude-opus-5-5\n"
+
+
+def test_differing_file_outside_audit_still_stops(corpus):
+    for run_id, text in [("a1", "made by claude-opus-5-5"), ("b2", "made by gpt-5.6-sol")]:
+        (corpus / "runs" / "P" / run_id / "notes.txt").write_text(text)
+    with pytest.raises(ConsensusError, match="notes.txt"):
+        prepare(corpus, "P", now=NOW)

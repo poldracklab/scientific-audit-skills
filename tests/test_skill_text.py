@@ -207,3 +207,14 @@ def test_consensus_template_is_blind():
 def test_consensus_scripts_dir_contents():
     names = sorted(p.name for p in (CONSENSUS / "scripts").iterdir() if p.name != "__pycache__")
     assert names == ["consensus.py", "consensus.sh", "discover.py", "redact.py"]
+
+
+def test_top_level_readme_documents_consensus_launcher():
+    text = (SKILLS / "README.md").read_text()
+    assert "### 4. Reconcile the audits into a consensus report" in text
+    assert "audit-consensus/scripts/consensus.sh" in text
+
+
+def test_consensus_skill_forbids_other_consensus_folders():
+    text = _flat((CONSENSUS / "SKILL.md").read_text())
+    assert "Never read other folders under `consensus/`" in text

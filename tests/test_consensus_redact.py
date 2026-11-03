@@ -120,3 +120,55 @@ def test_mtime_untouched_for_files_without_hits(run, plan):
     os.utime(qmd, (1_000_000, 1_000_000))
     redact_run(run, "a1", plan)
     assert qmd.stat().st_mtime == 1_000_000
+
+
+def test_own_prefix_does_not_capture_other_model(run):
+    plan = plan_redaction(run, "claude-opus-5", ["claude-opus-5-5"])
+    log = run / "audit" / "agent_log.jsonl"
+    log.write_text("me claude-opus-5, other claude-opus-5-5")
+    redact_run(run, "a1", plan)
+    assert log.read_text() == "me a1, other [redacted-model]"
+
+
+def test_short_alias_not_matched_inside_word(run):
+    plan = plan_redaction(run, "o3", [])
+    log = run / "audit" / "agent_log.jsonl"
+    log.write_text("photo3 and o3")
+    redact_run(run, "a1", plan)
+    assert log.read_text() == "photo3 and a1"
+    assert remaining_leaks(run, ["o3"]) == []
+
+
+def test_name_at_sentence_end_is_redacted(run, plan):
+    log = run / "audit" / "agent_log.jsonl"
+    log.write_text("Audited by claude-opus-5-5.")
+    redact_run(run, "a1", plan)
+    assert log.read_text() == "Audited by a1."
+
+
+def test_version_continuation_is_not_a_match(run):
+    plan = plan_redaction(run, "gpt-5", [])
+    log = run / "audit" / "agent_log.jsonl"
+    log.write_text("gpt-5.6 differs")
+    redact_run(run, "a1", plan)
+    assert log.read_text() == "gpt-5.6 differs"
+
+
+def test_remaining_leaks_ignores_outside_audit(run):
+    (run / "README.md").write_text("Prepared by: claude-opus-5-5")
+    assert remaining_leaks(run, [CLAUDE]) == []
+
+
+def test_leak_found_across_chunk_boundary(run, monkeypatch):
+    import redact
+    monkeypatch.setattr(redact, "CHUNK_SIZE", 16)
+    data = b"\xff" * 10 + CLAUDE.encode() + b"\x80" * 30
+    (run / "data.bin").write_bytes(data)
+    assert outside_audit_leaks(run, [CLAUDE]) == ["data.bin"]
+
+
+def test_no_false_leak_when_chunk_splits_a_longer_word(run, monkeypatch):
+    import redact
+    monkeypatch.setattr(redact, "CHUNK_SIZE", 12)
+    (run / "data.bin").write_bytes(b"\xff" * 10 + b"o3x" + b"\x80" * 20)
+    assert outside_audit_leaks(run, ["o3"]) == []

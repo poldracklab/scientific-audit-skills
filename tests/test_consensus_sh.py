@@ -12,6 +12,7 @@ pwd -P > "$FAKE_LOG.cwd"
 echo "$(basename "$0")" > "$FAKE_LOG.name"
 printf "%s\\0" "$@" > "$FAKE_LOG"
 grep -ril claude-opus-5-5 "$FAKE_RUNS" > "$FAKE_LOG.grep" || true
+for d in ../*/; do [ "$d" = "../$(basename "$PWD")/" ] || { cat "$d/inputs.json" > /dev/null 2>&1 && echo "$d"; }; done > "$FAKE_LOG.siblings"
 [ -n "${FAKE_QMD:-}" ] && echo "# consensus" > consensus.qmd
 [ -n "${FAKE_OUTPUT:-}" ] && printf "%b\\n" "$FAKE_OUTPUT"
 exit "${FAKE_STATUS:-0}"
@@ -71,6 +72,10 @@ def flag_value(args, flag):
     return args[args.index(flag) + 1]
 
 
+def add_dirs(args):
+    return [args[i + 1] for i, a in enumerate(args) if a == "--add-dir"]
+
+
 def consensus_dirs(corpus):
     return sorted((corpus / "runs" / "P" / "consensus").iterdir())
 
@@ -113,7 +118,7 @@ def test_claude_headless_flags(fake_env, corpus):
     assert "-p" in args and "--verbose" in args
     assert flag_value(args, "--permission-mode") == "auto"
     assert flag_value(args, "--output-format") == "stream-json"
-    assert flag_value(args, "--add-dir") == str(corpus / "runs" / "P")
+    assert add_dirs(args) == [str(corpus / "runs" / "P" / r) for r in ("a1", "b2")]
     assert "Use the audit-consensus skill" in args[-1] and "audits of P" in args[-1]
     assert "Never read registry.jsonl" in args[-1]
 
@@ -194,7 +199,24 @@ def test_interactive_runs_post_steps(fake_env, corpus):
     assert result.returncode == 0, result.stderr
     name, args, _ = agent_call(log)
     assert name == "claude" and args[:2] == ["--model", "claude-opus-5-5"] and "-p" not in args
-    assert flag_value(args, "--add-dir") == str(corpus / "runs" / "P")
+    assert add_dirs(args) == [str(corpus / "runs" / "P" / r) for r in ("a1", "b2")]
     out = consensus_dirs(corpus)[0]
     assert (out / "run_models.json").exists() and not (out / "agent_log.jsonl").exists()
     assert log.with_name(log.name + ".quarto").exists()
+
+
+def test_earlier_consensus_hidden_during_agent_and_restored(fake_env, corpus):
+    env, log = fake_env
+    assert run_script(env, corpus, "P").returncode == 0
+    earlier = consensus_dirs(corpus)[0]
+    mode = earlier.stat().st_mode
+    assert run_script(env, corpus, "P").returncode == 0
+    assert log.with_name(log.name + ".siblings").read_text() == ""
+    assert earlier.stat().st_mode == mode and (earlier / "inputs.json").exists()
+
+
+def test_prompt_forbids_other_consensus_folders(fake_env, corpus):
+    env, log = fake_env
+    assert run_script(env, corpus, "P").returncode == 0
+    _, args, _ = agent_call(log)
+    assert "Never read other folders under ../" in args[-1]
