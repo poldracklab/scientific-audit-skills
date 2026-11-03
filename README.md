@@ -99,6 +99,7 @@ clean. `reviewed_by` is set to the model name.
 The session is headless: it runs with `--permission-mode auto`, exits when done, prints the
 model's final message, saves the full transcript to
 `autoaudit/logs/prep/Poldrack_2026-<timestamp>.jsonl`, and returns the agent's exit status.
+
 Then confirm the result:
 
 ```sh

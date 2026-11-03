@@ -1,0 +1,119 @@
+---
+title: "Audit consensus: AUTHOR et al. (YEAR)"
+subtitle: "“PAPER TITLE.” *JOURNAL* VOL, PAGES. doi:DOI"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    theme: cosmo
+    df-print: kable
+execute:
+  warning: false
+  message: false
+---
+
+::: {.callout-important}
+## AI-generated — not for publication
+Code and prose were written by an AI agent (identity recorded by the operator) that reconciled several AI-generated audits under human direction. None of it has been verified line by line. Do not publish, circulate or cite. Check every claim about the authors' analyses independently.
+:::
+
+::: {.callout-warning}
+## Preliminary & unvetted analysis
+The adjudication analyses (LIST THEM) are the consensus agent's choices, not the authors' or the auditors'. Their numbers have not been independently validated.
+:::
+
+```{r}
+#| label: setup
+suppressPackageStartupMessages({library(tidyverse); library(knitr); library(jsonlite)})
+fmt  <- function(x, d = 1) formatC(x, format = "f", digits = d)
+fmtp <- function(p) ifelse(p < .001, "<.001", formatC(p, format = "f", digits = 3))
+inputs <- fromJSON("inputs.json")
+# Heavy adjudication results are cached in results/ by scripts in R/ (see appendix).
+```
+
+# Bottom line
+
+<!-- ≤ 150 words. Sentence 1: which major conclusions change (verdict falls to weak or
+     unsupported), or that none do. Then the confirmed major issues with severity, and what
+     remains unresolved. -->
+
+# Claims
+
+| Consensus claim | Consensus verdict | RUN_ID_1 | RUN_ID_2 | Why verdicts differ |
+|---|---|---|---|---|
+| K1 | strong / moderate / weak / hypothesis-generating / unsupported | C1: verdict | C1: verdict | |
+
+# Confirmed issues
+
+<!-- Ranked by severity, then consequence. One record each:
+
+### X1 — One-sentence statement of the issue {#x1}
+
+**Converged | Adjudicated: confirmed | Adjudicated: partly confirmed · major/moderate/minor ·
+affects K1 · changes the conclusion: yes/no.**
+
+*Raised by.* RUN_ID_1 F2; RUN_ID_2 F1.
+
+*Evidence.* Two or three sentences; deciding numbers inline from results/.
+
+*Consequence.* What changes in the claim's verdict.
+-->
+
+# Disputed and refuted findings
+
+<!-- One record each: the outcome (refuted / partly confirmed), the evidence that settled
+     it, and why the audits differed. -->
+
+# Agreed minor issues
+
+| Issue | Raised by | Location | Fix |
+|---|---|---|---|
+
+# Noticed during adjudication
+
+<!-- Unadjudicated, one line each, or "None." -->
+
+# Finding cross-walk {.appendix}
+
+| Run | Finding | Consensus item | Status | Outcome |
+|---|---|---|---|---|
+
+# Adjudication analyses {.appendix}
+
+<!-- Code (folded) and full output for each adjudication, labelled by consensus item. -->
+
+# Provenance {.appendix}
+
+```{r}
+#| label: provenance-runs
+kable(inputs$runs, col.names = c("Run", "audit.qmd SHA-256"))
+if (length(inputs$skipped)) cat("Skipped (unfinished):", paste(inputs$skipped, collapse = ", "))
+```
+
+```{r}
+#| label: provenance-models
+#| results: asis
+if (file.exists("run_models.json")) {
+  m <- fromJSON("run_models.json")
+  print(kable(tibble(Run = names(m), Model = unlist(m))))
+} else {
+  cat("Model mapping attached after the consensus run.")
+}
+```
+
+Known limitation: the consensus model may also be one of the auditing models and may
+recognize its own audit's style.
+
+| Source URL | Retrieval date | Local file | Consensus items |
+|---|---|---|---|
+
+# Session info {.appendix}
+
+```{r}
+#| label: session-info
+sessionInfo()
+```
