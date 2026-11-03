@@ -63,3 +63,32 @@ def test_acknowledgements_heading():
 @pytest.mark.parametrize("heading", ["Acknowledgments", "Acknowledgement", "ACKNOWLEDGEMENTS:"])
 def test_acknowledgement_spellings(heading):
     assert extract_statements(f"{heading}\nWe thank NSF.")[0].kind == "acknowledgements"
+
+
+def test_data_and_materials_availability_run_in():
+    s = extract_statements("Data and materials availability: All data are at https://osf.io/abcde.\n")
+    assert [x.kind for x in s] == ["data_availability"] and s[0].text.startswith("All data are at")
+
+
+@pytest.mark.parametrize("heading", [
+    "Data and code availability", "Data availability", "Availability of data", "Availability of data and materials",
+    "Data accessibility", "Data sharing", "Data sharing statement", "Transparency and openness",
+    "Transparency and openness promotion", "Transparency and openness promotion statement",
+])
+def test_data_availability_heading_variants(heading):
+    s = extract_statements(f"{heading}\nData are at OSF.")
+    assert [(x.kind, x.text) for x in s] == [("data_availability", "Data are at OSF.")]
+
+
+def test_acknowledgements_run_in_without_punctuation():
+    s = extract_statements("Acknowledgements The authors thank the participants.\n")
+    assert [x.kind for x in s] == ["acknowledgements"] and s[0].text.startswith("The authors")
+
+
+def test_funding_run_in_without_punctuation():
+    s = extract_statements("Funding This work was supported by NIH.\n")
+    assert [(x.kind, x.text) for x in s] == [("funding", "This work was supported by NIH.")]
+
+
+def test_sentence_starting_with_funding_is_not_a_heading():
+    assert extract_statements("Funding was provided by NIH.\n") == []
