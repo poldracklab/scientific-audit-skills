@@ -23,6 +23,7 @@ SIZE_POLICY = {
     "max_source_mb": 5000,
     "skip_ext": ["mp4", "mov", "avi", "wav", "mp3", "m4a"],
 }
+BARE_HOST_REASON = "bare host, no identifier (likely a line-wrapped URL)"
 LINK_REVIEW_REASONS = {
     "osf": "osf project or registration?",
     "github": "paper's code or a cited tool?",
@@ -142,6 +143,8 @@ def _confirm_paper(paper: dict, doi: str | None, get_json: Callable[[str], dict]
 
 
 def _link_reason(link: links.Link) -> str:
+    if links.is_bare_host(link.canonical):
+        return BARE_HOST_REASON
     if link.needs_review:
         return LINK_REVIEW_REASONS.get(link.cls, "ambiguous link")
     return f"{link.cls} host implies {link.role}"

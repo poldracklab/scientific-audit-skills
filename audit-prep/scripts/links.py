@@ -27,6 +27,8 @@ HOST_RULES = [
     ("crd.york.ac.uk", "prospero", "prereg", False),
     ("doi.org", "doi", "unknown", True),
 ]
+BARE_HOSTS = {"osf.io", "github.com", "zenodo.org", "neurovault.org", "openneuro.org",
+              "figshare.com", "datadryad.org"}
 
 
 @dataclass
@@ -79,10 +81,18 @@ def _osf_role(canonical: str) -> tuple[str, str, bool]:
     return "osf", "data", True
 
 
+def is_bare_host(canonical: str) -> bool:
+    """A known data/code host with no identifier in the path, e.g. from a line-wrapped URL."""
+    parts = urlsplit(canonical)
+    return parts.netloc.removeprefix("www.") in BARE_HOSTS and not parts.path.strip("/")
+
+
 def classify(canonical: str) -> tuple[str, str, bool]:
     host = urlsplit(canonical).netloc
     for suffix, cls, role, review in HOST_RULES:
         if host == suffix or host.endswith("." + suffix):
+            if is_bare_host(canonical):
+                return cls, "skip", False
             return _osf_role(canonical) if cls == "osf" else (cls, role, review)
     return "other", "unknown", True
 

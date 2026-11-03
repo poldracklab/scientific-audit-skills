@@ -76,11 +76,18 @@ Roles:
 | `reason` | Why the role was proposed, or the reviewer's one-line justification. |
 
 The paper's own DOI is pre-set to `role: skip` with reason "the paper's own doi".
+A known data or code host with no identifier (for example `https://osf.io/`, left
+when a URL wraps across lines) is pre-set to `role: skip` with reason "bare host,
+no identifier (likely a line-wrapped URL)"; check that the full link is listed too.
 
 ## Review rules
 
-Read the paper text and `statements.md` (the verbatim data, code,
-preregistration and funding statements with page numbers) before editing.
+Read the paper text and `statements.md` before editing. It holds the verbatim
+statements found under data availability, code availability, preregistration,
+open practices, funding and acknowledgements headings (funding often sits in
+the acknowledgements), with page numbers. If none was found it says so; then
+read the paper text for them directly, because run-in headings in two-column
+layouts are often missed.
 
 1. **Settle every `needs_review`.** Decide the role, set `needs_review: false`,
    and rewrite `reason` as a one-line justification citing the page or
