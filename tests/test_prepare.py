@@ -10,7 +10,7 @@ import pytest
 from conftest import review_plan
 from corpus import init_root
 from manifest import is_prepared
-from prepare import Clients, PlanError, finalize, run_prep, scan_folder
+from prepare import Clients, PlanError, finalize, run_prep, scan_folder, skill_commit
 from scan import load_plan, write_plan
 
 REPO = Path(__file__).resolve().parent.parent
@@ -134,7 +134,7 @@ def test_plan_fields_copied_to_manifest(reviewed_raw):
     dates = {"start": "2019-01", "end": "2019-06", "source_quote": "We tested in 2019.", "page": 3}
     _edit_plan(reviewed_raw, lambda plan: plan.update(data_collection=dates))
     m = _run(reviewed_raw)
-    assert m["data_collection"] == dates and m["prep_versions"] == {}
+    assert m["data_collection"] == dates and m["prep_versions"] == {"skill": skill_commit()}
 
 
 def _add_figshare(plan):
