@@ -172,3 +172,8 @@ def test_no_false_leak_when_chunk_splits_a_longer_word(run, monkeypatch):
     monkeypatch.setattr(redact, "CHUNK_SIZE", 12)
     (run / "data.bin").write_bytes(b"\xff" * 10 + b"o3x" + b"\x80" * 20)
     assert outside_audit_leaks(run, ["o3"]) == []
+
+
+def test_file_that_is_only_the_name_is_a_leak(run):
+    (run / "audit" / "name.bin").write_bytes(CLAUDE.encode())
+    assert remaining_leaks(run, [CLAUDE]) == ["audit/name.bin"]
