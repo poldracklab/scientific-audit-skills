@@ -202,6 +202,9 @@ OSF_ROUTES = {
     f"{OSF}/nodes/abcde/files/osfstorage/f0lder/": "osf_files_folder.json",
     f"{OSF}/registrations/x4c56/": "osf_registration.json",
     f"{OSF}/registrations/x4c56/files/osfstorage/": "osf_registration_files.json",
+    f"{OSF}/guids/abcde/": "osf_guid_node.json",
+    f"{OSF}/guids/x4c56/": "osf_guid_registration.json",
+    f"{OSF}/guids/38vzr/": "osf_guid_file.json",
 }
 
 

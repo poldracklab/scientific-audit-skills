@@ -1,6 +1,6 @@
 import pytest
 
-from scan import build_plan, classify_files, has_supplement_marker, load_plan, unresolved, write_plan
+from scan import annotate_osf_links, build_plan, classify_files, has_supplement_marker, load_plan, unresolved, write_plan
 
 SUPPLEMENT_NAMES = [
     "abf4355_sm.pdf",
@@ -238,3 +238,61 @@ def test_unresolved_rejects_duplicate_supplement_order(settled_plan):
 def test_unresolved_rejects_two_papers(settled_plan):
     _file(settled_plan, "paper_sm.pdf").update(role="paper", order=None)
     assert unresolved(settled_plan) == ["more than one file with role paper"]
+
+
+@pytest.fixture
+def crossref_and_osf(osf_api, crossref_fixture):
+    """Crossref knows the article DOI; every other URL goes to the recorded OSF routes (guids included)."""
+    def get_json(url):
+        return crossref_fixture if url.endswith("10.1126/sciadv.abf4355") else osf_api(url)
+
+    return get_json
+
+
+def _review_fields(link):
+    return link["role"], link["needs_review"], link["reason"]
+
+
+def test_scan_resolves_osf_links(raw_folder, crossref_and_osf):
+    canon = _links(build_plan(raw_folder("paper_supp"), get_json=crossref_and_osf))
+    assert _review_fields(canon["https://osf.io/abcde"]) == ("data", False, 'osf project "Trial data project"')
+    assert _review_fields(canon["https://osf.io/x4c56"]) == (
+        "prereg", False, 'osf registration "Preregistration: trial study"')
+
+
+def _osf_plan_link(url, page):
+    import links
+    from scan import _link_dict
+
+    return _link_dict(links.make_link(url, "paper.pdf", page), None)
+
+
+def test_scan_adds_parent_project_for_file_links(osf_fixture):
+    plan_links = [_osf_plan_link("https://osf.io/38vzr", 3), _osf_plan_link("https://osf.io/k9pqr", 5)]
+    annotated = annotate_osf_links(plan_links, lambda u: osf_fixture("osf_guid_file.json"))
+    assert len(annotated) == 3
+    for child in annotated[:2]:
+        assert _review_fields(child) == ("data", False, "osf file space_figure_3b.csv in project xu48j")
+    parent = annotated[2]
+    assert parent["canonical"] == "https://osf.io/xu48j" and parent["class"] == "osf" and parent["role"] == "data"
+    assert parent["needs_review"] is True and parent["reason"].startswith("parent project of osf file links")
+    assert "38vzr" in parent["reason"] and "k9pqr" in parent["reason"]
+    assert parent["found_in"] == [{"file": "paper.pdf", "page": 3}, {"file": "paper.pdf", "page": 5}]
+
+
+def test_scan_parent_project_not_duplicated(osf_api):
+    plan_links = [_osf_plan_link("https://osf.io/38vzr", 3), _osf_plan_link("https://osf.io/xu48j", 4)]
+    annotated = annotate_osf_links(plan_links, osf_api)
+    assert [l["canonical"] for l in annotated] == ["https://osf.io/38vzr", "https://osf.io/xu48j"]
+
+
+def test_scan_keeps_link_when_resolution_fails(raw_folder, crossref_only_article):
+    canon = _links(build_plan(raw_folder("paper_supp"), get_json=crossref_only_article))
+    assert _review_fields(canon["https://osf.io/abcde"]) == ("data", True, "osf project or registration?")
+    link = _osf_plan_link("https://osf.io/abcde", 1)
+    before = dict(link)
+
+    def failing(url):
+        raise OSError("boom")
+
+    assert annotate_osf_links([link], failing) == [before]
