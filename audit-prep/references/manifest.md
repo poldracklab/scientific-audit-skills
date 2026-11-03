@@ -46,7 +46,7 @@ OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as me
 
 ## Status vocabularies
 
-- Per-step statuses (conversions): `ok | skipped | failed | not_applicable`.
+- Per-step statuses (conversions): `ok | skipped | failed | not_applicable`. `skipped`: the output exists and the previous run recorded it `ok` (or `skipped`); any other existing output is treated as partial, removed and converted again. A supplement whose suffix has no converter (`.doc`, `.pptx`, `.csv`, ...) ends with every conversion `not_applicable`; that is not a problem, and the auditor gets the raw file.
 - `code` status: `ok | skipped | failed | unsupported`. `skipped`: the clone already exists. `unsupported`: a code link not on GitHub (reason "code links are fetched from GitHub only; fetch manually").
 - `links` status: the status of the fetch record it produced (`data`, `preregistration` or `code` vocabulary), or `skipped` for roles that are never fetched (`skip`, `unknown`, Crossref relation DOIs). `fetched_to` is set only when something is on disk.
 - `data` status: `ok | partial | listed_only | failed | unsupported`.
