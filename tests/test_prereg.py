@@ -13,6 +13,12 @@ def test_aspredicted_saves_pdf(tmp_path):
     assert r["status"] == "ok" and (tmp_path / "ap/abc12.pdf").read_bytes().startswith(b"%PDF")
 
 
+def test_aspredicted_html_is_unverified(tmp_path):
+    r = fetch_aspredicted("https://aspredicted.org/blind.php?x=abc12", tmp_path / "ap", lambda u: b"<html>login</html>")
+    assert (tmp_path / "ap/abc12.html").is_file() and r["status"] == "unverified"
+    assert r["reason"] == "HTML returned, not a PDF; the link may need its view token"
+
+
 def test_aspredicted_failure_recorded(tmp_path):
     def boom(u):
         raise OSError("403")
