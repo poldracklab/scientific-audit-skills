@@ -394,3 +394,54 @@ def test_rerun_clears_stale_review_before_first_step(reviewed_raw, monkeypatch):
     with pytest.raises(RuntimeError, match="boom"):
         _run(reviewed_raw)
     assert json.loads((p / "manifest.json").read_text())["review"] is None
+
+
+def _edit_manifest(prepared, edit):
+    m = json.loads((prepared / "manifest.json").read_text())
+    edit(m)
+    (prepared / "manifest.json").write_text(json.dumps(m))
+
+
+def _drop_last_page(prepared):
+    pages = sorted((prepared / "paper/pages").glob("p-*.png"))
+    pages[-1].unlink()
+
+
+@pytest.mark.parametrize("prior", ["failed", "no_record"])
+def test_rerun_redoes_truncated_conversion(reviewed_raw, prior):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    _drop_last_page(p)
+    if prior == "failed":
+        _edit_manifest(p, lambda m: m["documents"]["paper"]["conversions"].update(pages="failed"))
+    else:
+        _edit_manifest(p, lambda m: m["documents"].update(paper=None))
+    m = _run(reviewed_raw)
+    assert m["documents"]["paper"]["conversions"]["pages"] == "ok"
+    assert m["documents"]["paper"]["pages"] == 2 == len(list((p / "paper/pages").glob("p-*.png")))
+
+
+def test_rerun_redoes_truncated_text(reviewed_raw):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    (p / "paper/supplement_1.txt").write_text("")
+    _edit_manifest(p, lambda m: m["documents"]["supplements"][0]["conversions"].update(text="failed"))
+    m = _run(reviewed_raw)
+    assert m["documents"]["supplements"][0]["conversions"]["text"] == "ok"
+    assert "Data availability" in (p / "paper/supplement_1.txt").read_text()
+
+
+def test_rerun_keeps_ok_conversions(reviewed_raw, monkeypatch):
+    import docs
+
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    page = p / "paper/pages/p-001.png"
+    before = page.stat().st_mtime_ns
+    calls = []
+    monkeypatch.setattr(docs, "pdf_to_pages", lambda *a, **k: calls.append(a))
+    for _ in range(2):  # a `skipped` conversion stays done on the next rerun too
+        m = _run(reviewed_raw)
+        conv = m["documents"]["paper"]["conversions"]
+        assert conv["pages"] == "skipped" and conv["text"] == "skipped"
+    assert calls == [] and page.stat().st_mtime_ns == before
