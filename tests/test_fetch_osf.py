@@ -1,3 +1,5 @@
+import pytest
+
 from fetch_common import SizePolicy
 from fetch_osf import fetch_osf_files, fetch_osf_registration, list_osf_files, osf_id, resolve_guid
 
@@ -125,6 +127,21 @@ def test_fetch_file_guid_downloads_single_file(osf_api, tmp_path):
     assert r.status == "ok" and r.files[0]["path"] == "Data/space_figure_3b.csv" and len(r.files) == 1
     assert (dest / "Data/space_figure_3b.csv").exists()
     assert r.meta == {"kind": "file", "node_id": "xu48j", "node_url": "https://osf.io/xu48j"}
+    assert r.files[0]["remote_hash"] == GUID_FILE_SHA256 and r.files[0]["downloaded"] is True
+
+
+GUID_FILE_SHA256 = "c23f084284624d9365b54766c4782a02811ad98dbf8247c0b1a505abba629a67"
+
+
+@pytest.mark.parametrize("drop", ["null", "missing"])
+def test_file_guid_without_materialized_path_uses_its_name(osf_fixture, drop):
+    guid = osf_fixture("osf_guid_file.json")
+    attrs = guid["data"]["attributes"]
+    if drop == "null":
+        attrs["materialized_path"] = None
+    else:
+        del attrs["materialized_path"]
+    assert resolve_guid("38vzr", lambda u: guid)["path"] == "space_figure_3b.csv"
 
 
 def test_fetch_registration_guid_is_failed_with_hint(osf_api, tmp_path):
