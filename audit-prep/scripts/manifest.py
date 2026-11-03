@@ -47,10 +47,12 @@ def _is_excluded(rel: Path, exclude: tuple[str, ...]) -> bool:
     return len(rel.parts) == 1 and rel.name in exclude
 
 
-def hash_tree(root: Path, exclude: tuple[str, ...] = DEFAULT_EXCLUDE) -> list[dict]:
+def hash_tree(root: Path, exclude: tuple[str, ...] = DEFAULT_EXCLUDE, prune: tuple[str, ...] = ()) -> list[dict]:
     entries = []
     for p in root.rglob("*"):
         rel = p.relative_to(root)
+        if rel.parts[0] in prune:
+            continue
         if p.is_symlink() or not p.is_file() or _is_excluded(rel, exclude):
             continue
         entries.append({"path": rel.as_posix(), "size": p.stat().st_size, "sha256": _sha256(p)})

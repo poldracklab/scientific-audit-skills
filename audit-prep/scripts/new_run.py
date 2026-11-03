@@ -41,13 +41,20 @@ def _try_rsync(src: Path, dest: Path, run) -> bool:
         return False
 
 
+def _remove_partial(dest: Path) -> None:
+    if dest.exists():
+        restore_write(dest)
+        shutil.rmtree(dest, ignore_errors=True)
+
+
 def clone_tree(src: Path, dest: Path, run=subprocess.run) -> str:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if _try_clonefile(src, dest, run):
         return "clonefile"
-    shutil.rmtree(dest, ignore_errors=True)
+    _remove_partial(dest)
     if _try_rsync(src, dest, run):
         return "rsync"
+    _remove_partial(dest)
     raise CorpusError(f"could not copy {src} to {dest}")
 
 
@@ -73,8 +80,8 @@ def _write_run_json(dest: Path, info: dict) -> None:
     (dest / "run.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
 
 
-def _manifest_sha(prepared: Path) -> str:
-    return hashlib.sha256((prepared / MANIFEST_NAME).read_bytes()).hexdigest()
+def _sha(prepared: Path, name: str) -> str:
+    return hashlib.sha256((prepared / name).read_bytes()).hexdigest()
 
 
 def _now() -> str:
@@ -91,7 +98,8 @@ def new_run(corpus: Corpus, paper_id: str, model: str, runs_root: Path | None = 
     method = clone_tree(prepared, dest, run)
     restore_write(dest)
     (dest / "audit").mkdir()
-    info = {"run_id": run_id, "paper_id": paper_id, "created": _now(), "manifest_sha256": _manifest_sha(prepared)}
+    info = {"run_id": run_id, "paper_id": paper_id, "created": _now(), "manifest_sha256": _sha(prepared, MANIFEST_NAME),
+            "readme_sha256": _sha(prepared, "README.md")}
     _write_run_json(dest, info)
     set_dropbox_ignored(dest, run)
     register_run(corpus.registry, {**info, "model": model, "run_path": str(dest), "clone_method": method})

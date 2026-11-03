@@ -3,6 +3,8 @@
 # dependencies = []
 # ///
 """Verify a prepared or run folder against its manifest and report its status."""
+import hashlib
+import json
 import sys
 from pathlib import Path
 
@@ -12,7 +14,7 @@ ALLOWED_EXTRA = ("run.json", "audit")
 
 
 def _is_allowed_extra(rel: str) -> bool:
-    return rel in ALLOWED_EXTRA or rel.split("/", 1)[0] == "audit"
+    return rel in ALLOWED_EXTRA
 
 
 def _modified(expected: dict, actual: dict) -> list[str]:
@@ -23,10 +25,23 @@ def _dirty(expected: dict, actual: dict) -> list[str]:
     return sorted(p for p in actual if p not in expected and not _is_allowed_extra(p))
 
 
+def _file_sha(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _stale_pinned(folder: Path) -> list[str]:
+    pins = json.loads((folder / "run.json").read_text(encoding="utf-8"))
+    pinned = (("manifest.json", "manifest_sha256"), ("README.md", "readme_sha256"))
+    return [name for name, key in pinned if _file_sha(folder / name) != pins.get(key)]
+
+
 def _compare(folder: Path, m: dict) -> tuple[str, list[str]]:
-    actual = {f["path"]: f["sha256"] for f in hash_tree(folder)}
+    actual = {f["path"]: f["sha256"] for f in hash_tree(folder, prune=("audit",))}
     expected = {f["path"]: f["sha256"] for f in m.get("files", [])}
-    if modified := _modified(expected, actual):
+    if modified := _stale_pinned(folder) + _modified(expected, actual):
         return "run_modified", modified
     if dirty := _dirty(expected, actual):
         return "run_dirty", dirty
