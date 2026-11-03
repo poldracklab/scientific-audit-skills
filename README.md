@@ -1,6 +1,6 @@
-# my-skills
+# scientific-audit-skills
 
-Russ Poldrack's agent skills repository
+Poldracklab agent skills repository
 
 ## Skills
 
@@ -14,10 +14,10 @@ Russ Poldrack's agent skills repository
 Prepare common starting materials once with `audit-prep`: the publication, supplements,
 and directly linked data, code and preregistrations. Raw folders remain intact; prep copies
 selected inputs into a reviewed, frozen snapshot. The operator creates isolated runs and
-keeps the model registry outside the auditor's accessible workspace before evaluation.
+keeps the model registry outside the auditor's accessible workspace before evaluation. This allows for testing of multiple models on the same extracted data.
 
 Audits start only from a verified run. Models may discover and retrieve additional relevant
 evidence, including sources prep could not retrieve. Save it under
 `audit/additional-evidence/`, record source URLs, retrieval dates, local files and dependent
 findings, and preserve the prepared inputs. This measures auditing from common starting
-materials while allowing evidence discovery to contribute to model performance.
+materials while allowing evidence discovery to contribute to model performance. Model outputs are saved with a coded name so that other models can't identify the model that generated the output; this allows unbiased comparison of different model outputs by a separate model.
