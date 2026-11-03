@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-from fetch_common import FetchResult, RemoteFile, SizePolicy, download, select_downloads, sha256_file
+from fetch_common import FetchResult, RemoteFile, SizePolicy, download, file_records, select_downloads, sha256_file
 
 API = "https://api.osf.io/v2"
 OSF_ID_RE = re.compile(r"osf\.io/([a-z0-9]{5})(?=[/?#]|$)", re.I)
@@ -43,31 +43,13 @@ def list_osf_files(node_id: str, get_json) -> list[RemoteFile]:
     return walk_listing(f"{API}/nodes/{node_id}/files/osfstorage/", get_json)
 
 
-def _file_record(f: RemoteFile, sha: str | None = None, reason: str = "") -> dict:
-    rec = {"path": f.path, "size": f.size, "remote_hash": f.remote_hash, "downloaded": sha is not None, "sha256": sha}
-    return {**rec, "reason": reason} if reason else rec
-
-
-def _download_one(f: RemoteFile, dest: Path, get_bytes) -> dict:
-    """Download one file confined to `dest`; a failure is recorded on the file, never raised."""
-    try:
-        return _file_record(f, sha256_file(download(f.url, dest, get_bytes, f.path)))
-    except Exception as e:
-        return _file_record(f, reason=str(e))
-
-
-def _records(files: list[RemoteFile], selected: list[RemoteFile], dest: Path, get_bytes) -> list[dict]:
-    chosen = {id(f) for f in selected}
-    return [_download_one(f, dest, get_bytes) if id(f) in chosen else _file_record(f) for f in files]
-
-
 def fetch_osf_files(node_id: str, dest: Path, policy: SizePolicy, get_json, get_bytes) -> FetchResult:
     try:
         files = list_osf_files(node_id, get_json)
     except Exception as e:  # any API error is recorded, never raised
         return FetchResult("osf", node_id, str(dest), "failed", [], str(e))
     selected, status = select_downloads(files, policy)
-    return FetchResult("osf", node_id, str(dest), status, _records(files, selected, dest, get_bytes))
+    return FetchResult("osf", node_id, str(dest), status, file_records(files, selected, dest, get_bytes))
 
 
 def node_registration_count(node_id: str, get_json) -> int:

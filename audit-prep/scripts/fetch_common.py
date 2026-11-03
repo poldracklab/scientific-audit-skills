@@ -6,7 +6,7 @@
 import hashlib
 import json
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 MB = 10**6
@@ -48,6 +48,7 @@ class FetchResult:
     status: str
     files: list[dict]
     reason: str = ""
+    meta: dict = field(default_factory=dict)
 
 
 def select_downloads(
@@ -92,6 +93,24 @@ def sha256_file(p: Path) -> str:
 def _open(req: urllib.request.Request) -> bytes:
     with urllib.request.urlopen(req, timeout=60) as resp:
         return resp.read()
+
+
+def file_record(f: RemoteFile, sha: str | None = None, reason: str = "") -> dict:
+    rec = {"path": f.path, "size": f.size, "remote_hash": f.remote_hash, "downloaded": sha is not None, "sha256": sha}
+    return {**rec, "reason": reason} if reason else rec
+
+
+def download_one(f: RemoteFile, dest: Path, get_bytes) -> dict:
+    """Download one file confined to `dest`; a failure is recorded on the file, never raised."""
+    try:
+        return file_record(f, sha256_file(download(f.url, dest, get_bytes, f.path)))
+    except Exception as e:
+        return file_record(f, reason=str(e))
+
+
+def file_records(files: list[RemoteFile], selected: list[RemoteFile], dest: Path, get_bytes) -> list[dict]:
+    chosen = {id(f) for f in selected}
+    return [download_one(f, dest, get_bytes) if id(f) in chosen else file_record(f) for f in files]
 
 
 def default_get_bytes(url: str) -> bytes:
