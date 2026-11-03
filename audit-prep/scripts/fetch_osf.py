@@ -43,13 +43,54 @@ def list_osf_files(node_id: str, get_json) -> list[RemoteFile]:
     return walk_listing(f"{API}/nodes/{node_id}/files/osfstorage/", get_json)
 
 
-def fetch_osf_files(node_id: str, dest: Path, policy: SizePolicy, get_json, get_bytes) -> FetchResult:
-    try:
-        files = list_osf_files(node_id, get_json)
-    except Exception as e:  # any API error is recorded, never raised
-        return FetchResult("osf", node_id, str(dest), "failed", [], str(e))
+def _file_guid(data: dict) -> dict:
+    a = data["attributes"]
+    hashes = (a.get("extra") or {}).get("hashes") or {}
+    return {"type": "files", "node_id": data["relationships"]["target"]["data"]["id"], "name": a["name"],
+            "path": a["materialized_path"].lstrip("/"), "size": a.get("size") or 0,
+            "download": data["links"]["download"], "sha256": hashes.get("sha256")}
+
+
+def resolve_guid(guid: str, get_json) -> dict:
+    """What an OSF guid names: a project node, a registration, a file (with its project), or other."""
+    data = get_json(f"{API}/guids/{guid}/")["data"]
+    kind = data["type"]
+    if kind in ("nodes", "registrations"):
+        return {"type": kind, "node_id": guid, "title": data["attributes"]["title"]}
+    return _file_guid(data) if kind == "files" else {"type": kind, "node_id": None}
+
+
+def _fetched(guid: str, dest: Path, files: list[RemoteFile], policy, get_bytes, meta: dict) -> FetchResult:
     selected, status = select_downloads(files, policy)
-    return FetchResult("osf", node_id, str(dest), status, file_records(files, selected, dest, get_bytes))
+    return FetchResult("osf", guid, str(dest), status, file_records(files, selected, dest, get_bytes), meta=meta)
+
+
+def _single_file(info: dict) -> RemoteFile:
+    return RemoteFile(info["path"], info["size"], info["download"], info["sha256"])
+
+
+def _fetch_resolved(guid: str, info: dict, dest: Path, policy, get_json, get_bytes) -> FetchResult:
+    if info["type"] == "nodes":
+        meta = {"kind": "project", "node_id": guid, "title": info["title"]}
+        return _fetched(guid, dest, list_osf_files(guid, get_json), policy, get_bytes, meta)
+    if info["type"] == "files":
+        node = info["node_id"]
+        meta = {"kind": "file", "node_id": node, "node_url": f"https://osf.io/{node}"}
+        return _fetched(guid, dest, [_single_file(info)], policy, get_bytes, meta)
+    if info["type"] == "registrations":
+        reason = f"https://osf.io/{guid} is a registration; set role: prereg"
+    else:
+        reason = f"osf {info['type']}, not a project or file"
+    return FetchResult("osf", guid, str(dest), "failed", [], reason)
+
+
+def fetch_osf_files(osf_guid: str, dest: Path, policy: SizePolicy, get_json, get_bytes) -> FetchResult:
+    """Resolve the guid, then download a project's files or a single linked file."""
+    try:
+        info = resolve_guid(osf_guid, get_json)
+        return _fetch_resolved(osf_guid, info, dest, policy, get_json, get_bytes)
+    except Exception as e:  # any API error is recorded, never raised
+        return FetchResult("osf", osf_guid, str(dest), "failed", [], str(e))
 
 
 def node_registration_count(node_id: str, get_json) -> int:
