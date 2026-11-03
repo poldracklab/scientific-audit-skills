@@ -126,3 +126,21 @@ def test_index_docling_rewrites_markdown_image_links(docling_dir):
     _index_docling(json_path, out)
     text = (out / "paper.md").read_text()
     assert "![Image](figures/fig-01.png)" in text and "paper_artifacts" not in text
+
+
+@pytest.mark.parametrize("tool", ["pdftotext", "pdftoppm"])
+def test_poppler_tool_version_is_a_real_version(tool):
+    """Poppler tools take `-v`; `--version` is read as a filename and yields an I/O error."""
+    import docs
+
+    if not shutil.which(tool):
+        pytest.skip(f"{tool} missing")
+    version = docs._tool_version(tool)
+    assert version is not None and version.startswith(f"{tool} version")
+
+
+def test_failed_version_probe_records_no_version():
+    """An erroring probe must not have its error message recorded as a version."""
+    import docs
+
+    assert docs._first_line(["sh", "-c", "echo 'I/O Error: nope' >&2; exit 99"], 10) is None
