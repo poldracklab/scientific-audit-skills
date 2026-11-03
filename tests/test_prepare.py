@@ -313,3 +313,44 @@ def test_cli_init_scan_run_finalize(tmp_path, raw_folder):
 def test_cli_refuses_without_root(tmp_path, raw_folder):
     res = _cli("scan", raw_folder("paper_nodoi"), cwd=tmp_path)
     assert res.returncode == 2 and "init" in res.stderr
+
+
+def _links_json(p):
+    return {link["canonical"]: link for link in json.loads((_prepared(p) / "paper/links.json").read_text())}
+
+
+def test_listed_only_status_kept_in_links(reviewed_raw):
+    _edit_plan(reviewed_raw, lambda plan: plan["size_policy"].update(max_source_mb=0))
+    m = _run(reviewed_raw)
+    osf = _links_json(reviewed_raw)["https://osf.io/abcde"]
+    assert osf["status"] == "listed_only" and osf["fetched_to"] is None
+    assert {link["canonical"]: link for link in m["links"]}["https://osf.io/abcde"] == osf
+
+
+def test_unsupported_status_and_url_kept(reviewed_raw):
+    _edit_plan(reviewed_raw, _add_figshare)
+    m = _run(reviewed_raw)
+    fig = [d for d in m["data"] if d["source"] == "figshare"][0]
+    assert fig["status"] == "unsupported" and fig["url"] == "https://figshare.com/x/1"
+    link = _links_json(reviewed_raw)["https://figshare.com/x/1"]
+    assert link["status"] == "unsupported" and link["fetched_to"] is None
+
+
+def test_finalize_failure_leaves_folder_unprepared(reviewed_raw, monkeypatch, writable_after):
+    import manifest
+
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    original = manifest.render_readme
+
+    def boom(m):
+        raise RuntimeError("readme failed")
+
+    monkeypatch.setattr(manifest, "render_readme", boom)
+    with pytest.raises(RuntimeError, match="readme failed"):
+        finalize(p)
+    assert not is_prepared(p)
+    monkeypatch.setattr(manifest, "render_readme", original)
+    m = finalize(p)
+    assert m["finalized"] and is_prepared(p) and not os.access(p / "manifest.json", os.W_OK)
