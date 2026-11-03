@@ -108,19 +108,30 @@ def _picture_source(item: dict, base: Path) -> Path | None:
     return src if src.is_file() else None
 
 
-def _index_figures(doc: dict, base: Path, out_dir: Path) -> int:
+def _index_figures(doc: dict, base: Path, out_dir: Path) -> dict[str, str]:
+    """Copy pictures to figures/fig-NN.png; return {docling image uri: new relative path}."""
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
-    rows = []
+    rows, moved = [], {}
     for item in doc.get("pictures", []):
         src = _picture_source(item, base)
         if src is None:
             continue
         name = f"fig-{len(rows) + 1:02d}.png"
         shutil.copyfile(src, fig_dir / name)
+        moved[item["image"]["uri"]] = f"figures/{name}"
         rows.append([name, _page(item), _caption(item, doc)])
     _write_index(fig_dir / "figures.md", rows)
-    return len(rows)
+    return moved
+
+
+def _rewrite_links(markdown: Path, moved: dict[str, str]) -> None:
+    if not markdown.is_file():
+        return
+    text = markdown.read_text()
+    for old, new in moved.items():
+        text = text.replace(old, new)
+    markdown.write_text(text)
 
 
 def _grid(item: dict) -> list[list[str]]:
@@ -144,7 +155,9 @@ def _index_docling(json_path: Path, out_dir: Path) -> tuple[int, int]:
     import json
 
     doc = json.loads(json_path.read_text())
-    return _index_figures(doc, json_path.parent, out_dir), _index_tables(doc, out_dir)
+    moved = _index_figures(doc, json_path.parent, out_dir)
+    _rewrite_links(out_dir / f"{json_path.stem}.md", moved)
+    return len(moved), _index_tables(doc, out_dir)
 
 
 def _run_docling(pdf: Path, work: Path, run) -> None:
