@@ -24,13 +24,13 @@ PAGE2 = (
 
 @pytest.fixture(scope="session")
 def fixture_pdf(tmp_path_factory):
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     page.insert_text((72, 72), PAGE1, fontsize=10)
     rect = page.search_for("our code")[0]
-    page.insert_link({"kind": fitz.LINK_URI, "from": rect, "uri": "https://github.com/lab/repo"})
+    page.insert_link({"kind": pymupdf.LINK_URI, "from": rect, "uri": "https://github.com/lab/repo"})
     doc.new_page().insert_text((72, 72), PAGE2, fontsize=10)
     out = tmp_path_factory.mktemp("pdf") / "paper.pdf"
     doc.save(out)
