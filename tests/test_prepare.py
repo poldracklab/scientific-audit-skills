@@ -1,0 +1,315 @@
+import json
+import os
+import shutil
+import subprocess
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from corpus import init_root
+from manifest import is_prepared
+from prepare import Clients, PlanError, finalize, run_prep, scan_folder
+from scan import load_plan, write_plan
+
+REPO = Path(__file__).resolve().parent.parent
+PREP = REPO / "audit-prep" / "scripts" / "prep.py"
+CROSSREF = "https://api.crossref.org/works/10.1126/sciadv.abf4355"
+ZENODO = "https://zenodo.org/api/records/123456"
+REAL_TOOLS = {"pdftotext", "pdftoppm", "git", "tar", "zstd"}
+ROLES = {
+    "https://osf.io/abcde": "data",
+    "https://osf.io/x4c56": "prereg",
+    "https://github.com/lab/hidden-tool": "skip",
+}
+
+
+def _router(osf_api, crossref_fixture, zenodo_fixture):
+    routes = {CROSSREF: crossref_fixture, ZENODO: zenodo_fixture}
+
+    def get_json(url):
+        return routes[url] if url in routes else osf_api(url)
+
+    return get_json
+
+
+def _fake_run(cmd, *args, **kwargs):
+    if cmd[0] in REAL_TOOLS:
+        return subprocess.run(cmd, *args, **kwargs)
+    return subprocess.CompletedProcess(cmd, 1, stdout="", stderr=f"{cmd[0]} disabled in tests")
+
+
+@pytest.fixture
+def clients(osf_api, crossref_fixture, zenodo_fixture):
+    return Clients(
+        get_json=_router(osf_api, crossref_fixture, zenodo_fixture),
+        get_bytes=lambda url: b"prereg-bytes",
+        post_json=lambda url, payload: {},
+        run=_fake_run,
+        tool_versions=lambda: {},
+    )
+
+
+@pytest.fixture
+def make_prepped(tmp_path, raw_folder, clients):
+    def make(shape):
+        corpus = init_root(tmp_path / "corpus")
+        raw = Path(shutil.move(raw_folder(shape), corpus.root / "Paper_2024"))
+        scan_folder(raw, clients.get_json)
+        return SimpleNamespace(raw=raw, corpus=corpus, clients=clients)
+
+    return make
+
+
+def _review(prepped, bare_repo):
+    plan_path = prepped.raw / "prep.yaml"
+    plan = load_plan(plan_path)
+    plan["reviewed_by"] = "human"
+    for item in plan["files"] + plan["links"]:
+        item["needs_review"] = False
+    for link in plan["links"]:
+        link["role"] = ROLES.get(link["canonical"], link["role"])
+        if link["canonical"] == "https://github.com/lab/repo":
+            link["url"] = str(bare_repo)
+    write_plan(plan, plan_path)
+    return prepped
+
+
+def _edit_plan(prepped, edit):
+    plan = load_plan(prepped.raw / "prep.yaml")
+    edit(plan)
+    write_plan(plan, prepped.raw / "prep.yaml")
+
+
+@pytest.fixture
+def prepped_raw(make_prepped):
+    return make_prepped("paper_supp")
+
+
+@pytest.fixture
+def reviewed_raw(make_prepped, bare_repo):
+    return _review(make_prepped("paper_supp"), bare_repo)
+
+
+@pytest.fixture
+def reviewed_residue(make_prepped, bare_repo):
+    return _review(make_prepped("paper_residue"), bare_repo)
+
+
+@pytest.fixture
+def reviewed_data_archive(make_prepped, bare_repo):
+    return _review(make_prepped("paper_data_archive"), bare_repo)
+
+
+def _run(p):
+    return run_prep(p.raw, p.corpus, p.clients)
+
+
+def _prepared(p):
+    return p.corpus.prepared_dir(p.raw.name)
+
+
+def test_scan_writes_plan_and_statements(prepped_raw):
+    assert (prepped_raw.raw / "prep.yaml").is_file()
+    assert "Data availability" in (prepped_raw.raw / "statements.md").read_text()
+    plan_paths = {f["path"] for f in load_plan(prepped_raw.raw / "prep.yaml")["files"]}
+    assert "statements.md" not in plan_paths and "prep.yaml" not in plan_paths
+
+
+def test_run_refuses_unreviewed_plan(prepped_raw):
+    with pytest.raises(PlanError, match="reviewed_by"):
+        _run(prepped_raw)
+    assert prepped_raw.raw.exists()
+
+
+def test_dry_run_moves_nothing(reviewed_raw, capsys):
+    run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients, dry_run=True)
+    out = capsys.readouterr().out
+    assert reviewed_raw.raw.exists() and not _prepared(reviewed_raw).exists()
+    assert "paper/paper.pdf" in out and "FETCH" in out and "CONVERT" in out
+
+
+LAYOUT = [
+    "manifest.json", "prep.yaml", "paper/paper.pdf", "paper/paper.txt", "paper/pages/p-001.png",
+    "paper/supplement_1.pdf", "paper/supplement_1.txt", "paper/metadata.json", "paper/links.json",
+    "paper/statements.md", "github/lab__repo/.git", "data/osf_abcde/data/trials.csv",
+]
+
+
+def test_run_produces_layout(reviewed_raw):
+    m = _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    assert not reviewed_raw.raw.exists()
+    for rel in LAYOUT:
+        assert (p / rel).exists(), rel
+    assert not (p / "statements.md").exists()
+    assert m["documents"]["paper"]["original_name"] == "paper.pdf" and m["prepared_by"] == "human"
+    assert m["preregistration"][0]["source"] == "osf" and m["preregistration"][0]["status"] == "ok"
+
+
+def test_run_records_documents_and_fetches(reviewed_raw):
+    m = _run(reviewed_raw)
+    paper = m["documents"]["paper"]
+    assert paper["path"] == "paper/paper.pdf" and paper["pages"] == 2
+    assert paper["conversions"] == {"text": "ok", "pages": "ok", "structured": "failed", "statements": "skipped"}
+    supp = m["documents"]["supplements"][0]
+    assert supp["original_name"] == "paper_sm.pdf" and supp["path"] == "paper/supplement_1.pdf"
+    assert supp["conversions"]["statements"] == "not_applicable"
+    assert (_prepared(reviewed_raw) / "paper/supplement_1/pages/p-001.png").is_file()
+    assert m["code"][0]["path"] == "github/lab__repo" and m["code"][0]["status"] == "ok"
+    assert {d["source"]: d["path"] for d in m["data"]} == {"osf": "data/osf_abcde", "zenodo": "data/zenodo_123456"}
+
+
+def test_statements_regenerated_when_missing(reviewed_raw):
+    (reviewed_raw.raw / "statements.md").unlink()
+    m = _run(reviewed_raw)
+    assert m["documents"]["paper"]["conversions"]["statements"] == "ok"
+    assert "Data availability" in (_prepared(reviewed_raw) / "paper/statements.md").read_text()
+
+
+def test_links_augmented_with_fetch_status(reviewed_raw):
+    m = _run(reviewed_raw)
+    by_canonical = {link["canonical"]: link for link in m["links"]}
+    assert by_canonical["https://osf.io/abcde"]["fetched_to"] == "data/osf_abcde"
+    assert by_canonical["https://osf.io/abcde"]["status"] == "ok"
+    assert by_canonical["https://github.com/lab/hidden-tool"]["status"] == "skipped"
+    assert by_canonical["https://github.com/lab/hidden-tool"]["fetched_to"] is None
+    relation = [link for link in m["links"] if "10.1101/2020.01.01.123456" in link["url"]]
+    assert relation and relation[0]["status"] == "skipped" and relation[0]["role"] == "unknown"
+    assert relation[0]["class"] == "doi" and "crossref relation has-preprint" in relation[0]["reason"]
+    links_json = json.loads((_prepared(reviewed_raw) / "paper/links.json").read_text())
+    assert links_json == m["links"]
+
+
+def test_metadata_json_is_crossref_record(reviewed_raw):
+    m = _run(reviewed_raw)
+    meta = json.loads((_prepared(reviewed_raw) / "paper/metadata.json").read_text())
+    assert meta["doi"] == "10.1126/sciadv.abf4355" and m["metadata"] == meta
+
+
+def test_plan_fields_copied_to_manifest(reviewed_raw):
+    dates = {"start": "2019-01", "end": "2019-06", "source_quote": "We tested in 2019.", "page": 3}
+    _edit_plan(reviewed_raw, lambda plan: plan.update(data_collection=dates))
+    m = _run(reviewed_raw)
+    assert m["data_collection"] == dates and m["prep_versions"] == {}
+
+
+def _add_figshare(plan):
+    plan["links"].append({"url": "https://figshare.com/x/1", "canonical": "https://figshare.com/x/1",
+                          "class": "figshare", "role": "data", "needs_review": False, "found_in": [], "reason": "t"})
+
+
+def test_unsupported_data_source_recorded(reviewed_raw):
+    _edit_plan(reviewed_raw, _add_figshare)
+    m = _run(reviewed_raw)
+    fig = [d for d in m["data"] if d["source"] == "figshare"][0]
+    assert fig["status"] == "unsupported" and fig["path"] is None and fig["files"] == []
+    assert fig["reason"] == "no fetcher for figshare; fetch manually if needed"
+
+
+def test_fetch_exception_recorded_as_warning(reviewed_raw, monkeypatch):
+    import prepare
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("zenodo down")
+
+    monkeypatch.setattr(prepare.fetch_zenodo, "fetch_zenodo", boom)
+    m = _run(reviewed_raw)
+    zen = [d for d in m["data"] if d["source"] == "zenodo"][0]
+    assert zen["status"] == "failed" and "zenodo down" in zen["reason"]
+    assert any("zenodo down" in w for w in m["warnings"])
+
+
+def test_residue_moved_to_unsorted(reviewed_residue):
+    m = _run(reviewed_residue)
+    unsorted = reviewed_residue.corpus.unsorted_dir(reviewed_residue.raw.name)
+    assert (unsorted / ".venv").exists() and (unsorted / "paper.txt").is_file()
+    assert {u["original_path"] for u in m["unsorted"]} == {".git", ".venv", "paper.txt"}
+    assert (_prepared(reviewed_residue) / "paper/paper.txt").read_text() != "text dump of paper.pdf\n"
+
+
+def test_local_data_and_preexisting_archive(reviewed_data_archive):
+    m = _run(reviewed_data_archive)
+    p = _prepared(reviewed_data_archive)
+    assert (p / "data/mydata").is_dir() and (p / "data/mydata.tar.gz").is_file()
+    assert [a["extracted"] for a in m["local_data"] if a.get("archive")] == ["pre-existing"]
+    assert {"original_path": "mydata", "path": "data/mydata"} in m["local_data"]
+
+
+def _drop_file(path):
+    return lambda plan: plan.update(files=[f for f in plan["files"] if f["path"] != path])
+
+
+def test_archive_extracted_when_no_sibling(make_prepped, bare_repo):
+    p = make_prepped("paper_data_archive")
+    shutil.rmtree(p.raw / "mydata")
+    _edit_plan(p, _drop_file("mydata"))
+    m = _run(_review(p, bare_repo))
+    assert (_prepared(p) / "data/mydata/mydata/trials.csv").is_file()
+    assert [a["extracted"] for a in m["local_data"] if a.get("archive")] == ["ok"]
+
+
+def test_nested_archive_listed_not_extracted(make_prepped, bare_repo):
+    p = make_prepped("paper_data_archive")
+    shutil.move(p.raw / "mydata.tar.gz", p.raw / "mydata" / "inner.tar.gz")
+    _edit_plan(p, _drop_file("mydata.tar.gz"))
+    m = _run(_review(p, bare_repo))
+    assert {"path": "data/mydata/inner.tar.gz", "nested_archive": True} in m["local_data"]
+    assert not (_prepared(p) / "data/mydata/inner").exists()
+
+
+def test_rerun_after_move_resumes(reviewed_raw):
+    first = _run(reviewed_raw)
+    m2 = _run(reviewed_raw)
+    assert m2["documents"]["paper"]["conversions"]["text"] == "skipped"
+    assert len(m2["data"]) == len(first["data"]) and len(m2["links"]) == len(first["links"])
+    assert len(m2["local_data"]) == len(first["local_data"]) and m2["code"][0]["status"] == "skipped"
+
+
+@pytest.fixture
+def writable_after():
+    roots = []
+    yield roots.append
+    for root in roots:
+        for dirpath, _, files in os.walk(root):
+            os.chmod(dirpath, 0o755)
+            for name in files:
+                target = Path(dirpath) / name
+                if not target.is_symlink():
+                    os.chmod(target, 0o644)
+
+
+def test_finalize_sets_readonly_and_hashes(reviewed_raw, writable_after):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    m = finalize(p)
+    assert m["finalized"] and is_prepared(p) and (p / "README.md").is_file()
+    assert not os.access(p / "paper/paper.pdf", os.W_OK)
+    assert not os.access(p / "paper", os.W_OK) and os.access(p / "paper", os.R_OK | os.X_OK)
+    assert {f["path"] for f in m["files"]} >= {"paper/paper.pdf", "prep.yaml"}
+
+
+def _cli(*args, cwd):
+    cmd = ["uv", "run", "--quiet", str(PREP), *map(str, args)]
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=300)
+
+
+def test_cli_init_scan_run_finalize(tmp_path, raw_folder):
+    root = tmp_path / "corpus"
+    assert _cli("init", root, cwd=tmp_path).returncode == 0
+    assert (root / ".autoaudit-root").is_file()
+    raw = Path(shutil.move(raw_folder("paper_nodoi"), root / "Paper_2024"))
+    scanned = _cli("scan", raw, "--root", root, cwd=tmp_path)
+    assert scanned.returncode == 0, scanned.stderr
+    assert (raw / "prep.yaml").is_file() and (raw / "statements.md").is_file()
+    assert "paper_id: Paper_2024" in scanned.stdout
+    ran = _cli("run", raw, "--root", root, cwd=tmp_path)
+    assert ran.returncode == 2 and "reviewed_by" in ran.stderr
+    fin = _cli("finalize", raw, "--root", root, cwd=tmp_path)
+    assert fin.returncode == 2 and fin.stderr
+
+
+def test_cli_refuses_without_root(tmp_path, raw_folder):
+    res = _cli("scan", raw_folder("paper_nodoi"), cwd=tmp_path)
+    assert res.returncode == 2 and "init" in res.stderr
