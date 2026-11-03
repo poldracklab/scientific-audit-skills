@@ -16,7 +16,7 @@ execute:
 
 ::: {.callout-important}
 ## AI-generated — not for publication
-Analysis and prose by MODEL (signature / thinking level if available). Private working draft; verify against the original evidence before external use. **Review status:** no human review; independent rebuttal pass DONE / NOT DONE.
+Analysis and prose by an AI agent (identity recorded in the run registry). Private working draft; verify against the original evidence before external use. **Review status:** no human review; independent rebuttal pass DONE / NOT DONE.
 :::
 
 ::: {.callout-warning}
@@ -121,4 +121,6 @@ Checks and sensitivity analyses are the auditor's choices unless attributed to t
 
 # Run commands and session info {.appendix}
 
-<!-- Commands, relative paths, versions (incl. Quarto), seeds. sessionInfo() only if R was used. -->
+Run ID: (from `../run.json`)
+
+<!-- Commands, relative paths, versions (incl. Quarto), seeds. sessionInfo() only if R was used. Never name the auditing model. -->

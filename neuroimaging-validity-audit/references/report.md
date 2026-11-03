@@ -12,9 +12,9 @@ for checks actually run.
 Main body, in this order. Budgets count prose words only: not YAML, code, tables,
 captions, headings, status lines, or appendix.
 
-1. **The two callouts** (AI-generated; preliminary), at most 60 words each. The first names
-   the model used (and signature or thinking level if available) and states the human and
-   independent review status. They carry the AI and preliminary caveats for the whole
+1. **The two callouts** (AI-generated; preliminary), at most 60 words each. The first says it
+   was written by an AI agent (identity recorded in the run registry; never name the
+   auditing model) and states the human and independent review status. They carry the AI and preliminary caveats for the whole
    report; the body does not repeat them.
 2. **Bottom line** (at most 150 words). The first sentence states the verdict on the central
    claim(s). Then one sentence each: what remains supported, what changes, what is
