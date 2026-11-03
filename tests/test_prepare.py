@@ -208,12 +208,12 @@ def test_unsupported_data_source_recorded(reviewed_raw):
 
 
 def test_fetch_exception_recorded_as_warning(reviewed_raw, monkeypatch):
-    import prepare
+    import fetch_links
 
     def boom(*args, **kwargs):
         raise RuntimeError("zenodo down")
 
-    monkeypatch.setattr(prepare.fetch_zenodo, "fetch_zenodo", boom)
+    monkeypatch.setattr(fetch_links.fetch_zenodo, "fetch_zenodo", boom)
     m = _run(reviewed_raw)
     zen = [d for d in m["data"] if d["source"] == "zenodo"][0]
     assert zen["status"] == "failed" and "zenodo down" in zen["reason"]
