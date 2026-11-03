@@ -15,7 +15,12 @@ HEADINGS = {
     "preregistration": r"pre-?registration",
     "funding": r"funding",
     "open_practices": r"open practices(?: statement)?",
+    "acknowledgements": r"acknowledge?ments?",
 }
+NONE_FOUND = (
+    "No data availability, code availability, preregistration, open-practices or funding "
+    "statements were found by heading search. Read the paper text directly.\n"
+)
 HEADING_RES = {
     kind: re.compile(rf"^\s*(?:{pat})\s*(?:[:.]\s*(?P<rest>.*?))?\s*$", re.IGNORECASE)
     for kind, pat in HEADINGS.items()
@@ -84,5 +89,5 @@ def _section(stmt: Statement) -> str:
 
 def write_statements_md(statements: list[Statement], out: Path) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(_section(s) for s in statements))
+    out.write_text("\n".join(_section(s) for s in statements) if statements else NONE_FOUND)
     return out
