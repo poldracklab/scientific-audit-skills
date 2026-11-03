@@ -58,10 +58,12 @@ prepared/<Paper_Year>/
   data/
     <original_dir_name>/                    # local data directories as supplied
     osf_<nodeid>/  zenodo_<recordid>/  neurovault_<collectionid>/
+    openneuro_<dsid>/   # metadata only: dataset.json, README, files.json, root-level BIDS files
 ```
 
-Data fetchers exist for OSF, Zenodo and NeuroVault; code is cloned from GitHub. Any other data
-host (figshare, Dryad, OpenNeuro, bare DOIs, other) is recorded in the manifest as
+Data fetchers exist for OSF, Zenodo, NeuroVault and OpenNeuro (metadata and root-level files
+only; imaging files are listed in `files.json`, never downloaded); code is cloned from GitHub.
+Any other data host (figshare, Dryad, bare DOIs, other) is recorded in the manifest as
 `status: unsupported` with its URL, so the auditor sees it. Field-level detail:
 `references/manifest.md`.
 

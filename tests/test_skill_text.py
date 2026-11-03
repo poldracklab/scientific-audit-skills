@@ -83,3 +83,14 @@ def test_session_cwd_rule_stated_in_prep_and_both_intakes():
     for skill in ["reproducibility-audit", "neuroimaging-validity-audit"]:
         assert CWD_RULE in _flat(_intake(skill)), skill
     assert _intake("reproducibility-audit") == _intake("neuroimaging-validity-audit")
+
+
+def _unsupported_host_sentence(text: str) -> str:
+    assert "Any other data" in text
+    return text.split("Any other data", 1)[1].split("status: unsupported", 1)[0]
+
+
+def test_audit_prep_skill_lists_openneuro_as_a_fetcher():
+    text = (SKILLS / "audit-prep/SKILL.md").read_text()
+    assert "openneuro_<dsid>/" in text
+    assert "OpenNeuro" not in _unsupported_host_sentence(text)

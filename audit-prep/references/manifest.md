@@ -38,6 +38,8 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 
 `{source, id, path, status, files, reason, meta}`; each file is `{path, size, sha256 | remote_hash, downloaded: bool}`.
 
+OpenNeuro (`source: openneuro`, `path` `data/openneuro_<dsid>`) is fetched as metadata only: `files` holds the root-level files (`dataset_description.json`, `participants.tsv`, `README`, `CHANGES`, ...); `meta` is `{scope: "metadata", tag, dataset_doi, name, subjects, modalities, total_files, size}`; the folder holds `dataset.json` (dataset, snapshot, description and summary), `README` and `files.json`, the full snapshot listing `{path, size, directory, annexed, url}`. Imaging files are never downloaded. `status` is `ok` when every root-level file downloaded, else `partial`.
+
 ## Status vocabularies
 
 - Per-step statuses (conversions): `ok | skipped | failed | not_applicable`.

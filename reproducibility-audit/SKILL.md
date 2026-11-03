@@ -55,7 +55,7 @@ runs/<Paper_Year>/<run_id>/       # your cwd
   github/<owner>__<repo>/                   # authors' code at the commit in the manifest
   data/
     <name>/                                 # local data directories as supplied
-    osf_<id>/  zenodo_<id>/  neurovault_<id>/
+    osf_<id>/  zenodo_<id>/  neurovault_<id>/  openneuro_<id>/ (metadata only)
   audit/                                    # all your output goes here
 ```
 
