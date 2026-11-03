@@ -27,6 +27,8 @@ HOST_RULES = [
     ("crd.york.ac.uk", "prospero", "prereg", False),
     ("doi.org", "doi", "unknown", True),
 ]
+REPOSITORY_DOI_PREFIXES = ("10.5281/zenodo", "10.17605/osf.io", "10.6084/m9.figshare", "10.5061/dryad",
+                           "10.18112/openneuro")
 BARE_HOSTS = {"osf.io", "github.com", "zenodo.org", "neurovault.org", "openneuro.org",
               "figshare.com", "datadryad.org"}
 
@@ -97,9 +99,19 @@ def classify(canonical: str) -> tuple[str, str, bool]:
     return "other", "unknown", True
 
 
+def is_repository_doi(doi: str) -> bool:
+    """A data/code deposit DOI (Zenodo, OSF, figshare, Dryad, OpenNeuro), never a paper's own DOI."""
+    return doi.lower().startswith(REPOSITORY_DOI_PREFIXES)
+
+
+def find_dois(text: str) -> list[str]:
+    """Candidate article DOIs in order of appearance, deduplicated, deposit DOIs left out."""
+    found = (_strip(m.group(0)) for m in DOI_RE.finditer(text))
+    return list(dict.fromkeys(d for d in found if not is_repository_doi(d)))
+
+
 def find_doi(text: str) -> str | None:
-    match = DOI_RE.search(text)
-    return _strip(match.group(0)) if match else None
+    return next(iter(find_dois(text)), None)
 
 
 def make_link(raw: str, file: str, page: int) -> Link:

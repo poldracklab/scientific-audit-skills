@@ -10,8 +10,8 @@ from typing import Callable
 import pymupdf
 import yaml
 
-import crossref
 import links
+from paper_doi import DoiChoice, choose_paper_doi
 
 RESIDUE_NAMES = {".git", ".venv", ".pytest_cache", "__pycache__", ".DS_Store"}
 SUPPLEMENT_MARKERS = ("supp", "_sm", "som", "mmc", "esm", "moesm", "supplement")
@@ -55,11 +55,15 @@ def _marker_reason(name: str) -> str:
     return "name marker " + _matching_marker(name)
 
 
-def pdf_info(pdf: Path) -> tuple[str | None, int]:
-    """DOI found on the first pages, and the page count."""
+def _first_pages(pdf: Path) -> tuple[str, int]:
     with pymupdf.open(pdf) as doc:
-        text = "\n".join(doc[i].get_text() for i in range(min(DOI_PAGES, len(doc))))
-        return links.find_doi(text), len(doc)
+        return "\n".join(doc[i].get_text() for i in range(min(DOI_PAGES, len(doc)))), len(doc)
+
+
+def pdf_info(pdf: Path) -> tuple[str | None, int]:
+    """First non-deposit DOI found on the first pages, and the page count."""
+    text, pages = _first_pages(pdf)
+    return links.find_doi(text), pages
 
 
 def _is_archive(name: str) -> bool:
@@ -127,21 +131,6 @@ def classify_files(raw: Path) -> list[dict]:
     return sorted(classified, key=lambda e: e["path"])
 
 
-def _confirm_paper(paper: dict, doi: str | None, get_json: Callable[[str], dict]) -> None:
-    if doi is None:
-        paper.update(needs_review=True, reason="no doi found on first pages")
-        return
-    try:
-        kind = crossref.fetch_metadata(doi, get_json)["type"]
-    except (OSError, ValueError) as err:
-        paper.update(needs_review=True, reason=f"crossref lookup failed: {err}")
-        return
-    if kind == "journal-article":
-        paper.update(needs_review=False, reason="DOI resolves to journal-article")
-    else:
-        paper.update(needs_review=True, reason=f"doi type is {kind}, not journal-article")
-
-
 def _link_reason(link: links.Link) -> str:
     if links.is_bare_host(link.canonical):
         return BARE_HOST_REASON
@@ -150,43 +139,47 @@ def _link_reason(link: links.Link) -> str:
     return f"{link.cls} host implies {link.role}"
 
 
-def _link_dict(link: links.Link, paper_doi: str | None) -> dict:
+def _link_dict(link: links.Link, paper_doi: str | None, confirmed: bool = True) -> dict:
+    """`paper_doi` is pre-set to skip only once Crossref confirmed it as a journal-article."""
     entry = {
         "url": link.url, "canonical": link.canonical, "class": link.cls, "role": link.role,
         "needs_review": link.needs_review, "found_in": link.found_in, "reason": _link_reason(link),
     }
     if paper_doi and link.canonical == links.canonicalize(paper_doi):
-        entry.update(role="skip", needs_review=False, reason="the paper's own doi")
+        if confirmed:
+            entry.update(role="skip", needs_review=False, reason="the paper's own doi")
+        else:
+            entry.update(needs_review=True, reason="may be the paper's own doi; Crossref did not confirm it")
     return entry
 
 
-def _plan_links(raw: Path, files: list[dict], paper_doi: str | None) -> list[dict]:
+def _plan_links(raw: Path, files: list[dict], choice: DoiChoice) -> list[dict]:
     pdfs = [raw / f["path"] for f in files if f["path"].lower().endswith(".pdf")]
     found = [link for pdf in pdfs for link in links.extract_links_from_pdf(pdf)]
-    return [_link_dict(link, paper_doi) for link in links.merge_links(found)]
+    return [_link_dict(link, choice.doi, choice.confirmed) for link in links.merge_links(found)]
 
 
-def _paper_doi(raw: Path, files: list[dict], get_json) -> str | None:
+def _paper_doi(raw: Path, files: list[dict], get_json) -> DoiChoice:
     paper = next((f for f in files if f["role"] == "paper"), None)
     if paper is None:
-        return None
-    doi = pdf_info(raw / paper["path"])[0]
-    _confirm_paper(paper, doi, get_json)
-    return doi
+        return DoiChoice(None, False, "no paper")
+    choice = choose_paper_doi(links.find_dois(_first_pages(raw / paper["path"])[0]), get_json)
+    paper.update(needs_review=not choice.confirmed, reason=choice.reason)
+    return choice
 
 
 def build_plan(raw: Path, get_json: Callable[[str], dict]) -> dict:
     files = classify_files(raw)
-    doi = _paper_doi(raw, files, get_json)
+    choice = _paper_doi(raw, files, get_json)
     return {
         "schema_version": 1,
         "paper_id": raw.name,
         "reviewed_by": None,
-        "doi": doi,
+        "doi": choice.doi,
         "data_collection": {"start": None, "end": None, "source_quote": None, "page": None},
         "size_policy": {**SIZE_POLICY, "skip_ext": list(SIZE_POLICY["skip_ext"])},
         "files": files,
-        "links": _plan_links(raw, files, doi),
+        "links": _plan_links(raw, files, choice),
     }
 
 
