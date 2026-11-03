@@ -10,7 +10,7 @@ for target in ~/.agents/skills ~/.claude/skills; do
   mkdir -p "$target"
   for skill in "$repo"/*/; do
     name="$(basename "$skill")"
-    [ -f "$target/$skill/SKILL.md" ] || continue
+    [ -f "$skill/SKILL.md" ] || continue
     echo "linking $skill to $target"
     ln -sfn "$skill" "$target/$name"
   done
