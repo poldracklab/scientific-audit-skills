@@ -95,7 +95,7 @@ launch_interactive() {
     local model="$1" prompt="$2"
     shift 2
     case "$(harness "$model")" in
-        claude)   claude --model "$model" "$@" "$prompt" ;;
+        claude)   claude --model "$model" "$@" -- "$prompt" ;;
         codex)    codex --model "$model" "$prompt" ;;
         opencode) opencode run --model "openrouter/$model" "$prompt" ;;
     esac
@@ -106,7 +106,7 @@ launch_headless() {
     shift 2
     case "$(harness "$model")" in
         claude)   claude -p --model "$model" --permission-mode auto \
-                      --output-format stream-json --verbose "$@" "$prompt" ;;
+                      --output-format stream-json --verbose "$@" -- "$prompt" ;;
         codex)    codex exec -m "$model" --sandbox workspace-write \
                       -c sandbox_workspace_write.network_access=true \
                       --skip-git-repo-check --json "$prompt" ;;
