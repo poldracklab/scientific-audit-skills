@@ -7,10 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from conftest import review_plan
+from conftest import accept_all_problems, review_plan
 from corpus import init_root
 from manifest import is_prepared
-from prepare import Clients, PlanError, finalize, run_prep, scan_folder, skill_commit
+from prepare import Clients, PlanError, checked_plan, finalize, run_prep, scan_folder, skill_commit
+from review import ReviewError
 from scan import load_plan, write_plan
 
 REPO = Path(__file__).resolve().parent.parent
@@ -213,6 +214,7 @@ def test_finalize_sets_readonly_and_hashes(reviewed_raw, writable_after):
     _run(reviewed_raw)
     p = _prepared(reviewed_raw)
     writable_after(p)
+    accept_all_problems(p)
     m = finalize(p)
     assert m["finalized"] and is_prepared(p) and (p / "README.md").is_file()
     assert not os.access(p / "paper/paper.pdf", os.W_OK)
@@ -272,6 +274,7 @@ def test_finalize_failure_leaves_folder_unprepared(reviewed_raw, monkeypatch, wr
     _run(reviewed_raw)
     p = _prepared(reviewed_raw)
     writable_after(p)
+    accept_all_problems(p)
     original = manifest.render_readme
 
     def boom(m):
@@ -299,3 +302,27 @@ def test_skill_commit_none_outside_a_repo(tmp_path):
     from prepare import skill_commit
 
     assert skill_commit(tmp_path) is None
+
+
+def test_run_prep_records_review_and_finalize_refuses(reviewed_raw, writable_after):
+    _edit_plan(reviewed_raw, _add_figshare)
+    m = _run(reviewed_raw)
+    assert m["review"]["status"] == "failed"
+    assert "data figshare https://figshare.com/x/1" in [p["item"] for p in m["review"]["problems"]]
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    with pytest.raises(ReviewError, match="accept_failures:"):
+        finalize(p)
+    assert json.loads((p / "manifest.json").read_text())["finalized"] is False
+    accept_all_problems(p)
+    m = finalize(p)
+    assert m["finalized"] is True and m["review"]["status"] == "ok"
+    assert len(m["review"]["accepted"]) >= 1
+    readme = (p / "README.md").read_text()
+    assert "## Prep review" in readme and "test environment" in readme
+
+
+def test_plan_rejects_empty_acceptance_reason(reviewed_raw):
+    _edit_plan(reviewed_raw, lambda plan: plan.update(accept_failures={"data osf abcde": ""}))
+    with pytest.raises(PlanError, match="accept_failures: data osf abcde: reason required"):
+        checked_plan(reviewed_raw.raw, reviewed_raw.corpus)

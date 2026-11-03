@@ -82,3 +82,28 @@ def test_hash_tree_prunes_finder_and_dropbox_metadata(tmp_path):
     (tmp_path / "data" / ".dropbox.cache").mkdir()
     (tmp_path / "data" / ".dropbox.cache" / "blob").write_bytes(b"x")
     assert [e["path"] for e in hash_tree(tmp_path)] == ["data/sub/trials.csv"]
+
+
+def test_new_manifest_has_review_none():
+    assert new_manifest("X_2020", "human")["review"] is None
+
+
+def test_readme_renders_prep_review():
+    m = new_manifest("X_2020", "human")
+    assert "## Prep review" in render_readme(m) and "not run" in render_readme(m).split("## Prep review")[1]
+    accepted = {"kind": "data", "item": "data osf abcde", "status": "listed_only", "detail": "over size policy",
+                "accepted_reason": "12 GB; listing suffices"}
+    m["review"] = {"status": "ok", "problems": [], "accepted": [accepted], "unused": []}
+    text = render_readme(m)
+    section = text.split("## Prep review")[1].split("## Warnings")[0]
+    assert "- Status: ok" in section and "data osf abcde" in section and "12 GB; listing suffices" in section
+    assert text.index("## Data collection") < text.index("## Prep review") < text.index("## Warnings")
+
+
+def test_readme_renders_failed_review_with_open_problems():
+    m = new_manifest("X_2020", "human")
+    problem = {"kind": "code", "item": "code https://gitlab.com/a/b", "status": "unsupported", "detail": "no fetcher"}
+    m["review"] = {"status": "failed", "problems": [problem], "accepted": [], "unused": []}
+    section = render_readme(m).split("## Prep review")[1].split("## Warnings")[0]
+    assert "- Status: FAILED" in section and "no accepted failures" in section
+    assert "| Item | Status | Detail |" in section and "code https://gitlab.com/a/b" in section

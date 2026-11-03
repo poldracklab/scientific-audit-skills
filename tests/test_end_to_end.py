@@ -4,6 +4,7 @@ import random
 import shutil
 from pathlib import Path
 
+from conftest import accept_all_problems
 from corpus import init_root
 from new_run import new_run
 from prepare import finalize, run_prep
@@ -39,6 +40,7 @@ def _prepare(tmp_path, raw_folder, clients, bare_repo, writable_after):
     prepared = corpus.prepared_dir("Paper_2024")
     _check_prep_outcomes(prepared)
     writable_after(prepared)
+    accept_all_problems(prepared)
     finalize(prepared)
     return corpus, prepared
 
