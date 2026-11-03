@@ -1,3 +1,5 @@
+import urllib.error
+
 from prereg import fetch_aspredicted, fetch_clinicaltrials, fetch_prereg
 
 
@@ -22,3 +24,30 @@ def test_aspredicted_failure_recorded(tmp_path):
 def test_dispatch_osf_non_registration(osf_api, tmp_path):
     r = fetch_prereg({"class": "osf", "canonical": "https://osf.io/abcde"}, tmp_path, osf_api, lambda u: b"")
     assert r["status"] == "failed" and "not a registration" in r["reason"]
+
+
+REG_ABCDE = "https://api.osf.io/v2/registrations/abcde/"
+
+
+def test_dispatch_osf_forbidden_is_failed_not_non_registration(osf_router, tmp_path):
+    get_json = osf_router({REG_ABCDE: urllib.error.HTTPError(REG_ABCDE, 403, "Forbidden", {}, None)})
+    r = fetch_prereg({"class": "osf", "canonical": "https://osf.io/abcde"}, tmp_path, get_json, lambda u: b"")
+    assert r["status"] == "failed" and r["reason"] != "not a registration" and "403" in r["reason"]
+
+
+def test_dispatch_osf_gone_is_non_registration(osf_router, tmp_path):
+    get_json = osf_router({REG_ABCDE: urllib.error.HTTPError(REG_ABCDE, 410, "Gone", {}, None)})
+    r = fetch_prereg({"class": "osf", "canonical": "https://osf.io/abcde"}, tmp_path, get_json, lambda u: b"")
+    assert r["status"] == "failed" and r["reason"] == "not a registration"
+
+
+def test_aspredicted_unsafe_id_failed(tmp_path):
+    link = {"class": "aspredicted", "canonical": "https://aspredicted.org/blind.php?x=/../../../foo"}
+    r = fetch_prereg(link, tmp_path / "root", None, lambda u: b"%PDF-1.4")
+    assert r["status"] == "failed" and r["reason"] == "unsafe id" and not any(tmp_path.rglob("foo*"))
+
+
+def test_prospero_unsafe_id_failed(tmp_path):
+    link = {"class": "prospero", "canonical": "https://www.crd.york.ac.uk/prospero/display_record.php?RecordID=../x"}
+    r = fetch_prereg(link, tmp_path / "root", None, lambda u: b"<html>")
+    assert r["status"] == "failed" and r["reason"] == "unsafe id"

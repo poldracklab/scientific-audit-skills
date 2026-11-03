@@ -187,16 +187,46 @@ def _load_fixture(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text())
 
 
-@pytest.fixture
-def osf_api():
+def _osf_get_json(overrides: dict):
     import urllib.error
 
     def get_json(url: str) -> dict:
+        if url in overrides:
+            value = overrides[url]
+            if isinstance(value, Exception):
+                raise value
+            return value
         if url in OSF_ROUTES:
             return _load_fixture(OSF_ROUTES[url])
         raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
 
     return get_json
+
+
+@pytest.fixture
+def osf_api():
+    return _osf_get_json({})
+
+
+@pytest.fixture
+def osf_router():
+    """Build an OSF get_json whose `overrides` (URL -> dict or exception) win over the recorded routes."""
+    return _osf_get_json
+
+
+@pytest.fixture
+def osf_fixture():
+    return _load_fixture
+
+
+def osf_file_entry(fid: str, name: str, size: int, extra: dict) -> dict:
+    attrs = {"kind": "file", "name": name, "size": size, "extra": extra}
+    return {"id": fid, "type": "files", "attributes": attrs, "links": {"download": f"https://osf.io/download/{fid}/"}}
+
+
+@pytest.fixture
+def osf_entry():
+    return osf_file_entry
 
 
 @pytest.fixture

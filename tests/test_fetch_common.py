@@ -1,6 +1,25 @@
 import hashlib
 
-from fetch_common import RemoteFile, SizePolicy, download, select_downloads, sha256_file
+import pytest
+
+from fetch_common import RemoteFile, SizePolicy, download, safe_join, select_downloads, sha256_file
+
+
+@pytest.mark.parametrize("rel", ["../evil.txt", "/etc/x", "data/../../evil.txt", ".."])
+def test_safe_join_rejects_escape(tmp_path, rel):
+    with pytest.raises(ValueError):
+        safe_join(tmp_path / "dest", rel)
+
+
+def test_safe_join_allows_nested(tmp_path):
+    assert safe_join(tmp_path / "dest", "data/trials.csv") == (tmp_path / "dest/data/trials.csv").resolve()
+
+
+def test_download_rel_is_confined(tmp_path):
+    with pytest.raises(ValueError):
+        download("u", tmp_path / "dest", lambda u: b"x", "../evil.txt")
+    assert not (tmp_path / "evil.txt").exists()
+    assert download("u", tmp_path / "dest", lambda u: b"x", "a/b.txt").read_bytes() == b"x"
 
 
 def test_policy_skips_video_and_big_files():
