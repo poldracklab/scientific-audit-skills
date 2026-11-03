@@ -33,6 +33,7 @@ def new_manifest(paper_id: str, prepared_by: str) -> dict:
         "unsorted": [],
         "files": [],
         "warnings": [],
+        "review": None,
     }
 
 
@@ -172,11 +173,28 @@ def _data_collection(m: dict) -> list[str]:
     return _section("Data collection", body, "not recorded")
 
 
+def _review_body(review: dict) -> list[str]:
+    ok = review.get("status") == "ok"
+    rows = [[a.get("item"), a.get("status"), a.get("detail"), a.get("accepted_reason")]
+            for a in review.get("accepted") or []]
+    body = [f"- Status: {'ok' if ok else 'FAILED'}", ""]
+    body += _table(["Item", "Status", "Detail", "Accepted because"], rows) if rows else ["no accepted failures"]
+    if not ok:
+        open_rows = [[p.get("item"), p.get("status"), p.get("detail")] for p in review.get("problems") or []]
+        body += [""] + _table(["Item", "Status", "Detail"], open_rows)
+    return body
+
+
+def _prep_review(m: dict) -> list[str]:
+    review = m.get("review")
+    return _section("Prep review", _review_body(review) if review else [], "not run")
+
+
 def _warnings(m: dict) -> list[str]:
     return _section("Warnings", [f"- {w}" for w in m.get("warnings") or []], "none")
 
 
 def render_readme(m: dict) -> str:
     parts = [_header(m), _documents(m), _preregistration(m), _code(m), _data(m),
-             _local_data(m), _unsorted(m), _data_collection(m), _warnings(m)]
+             _local_data(m), _unsorted(m), _data_collection(m), _prep_review(m), _warnings(m)]
     return "\n".join(line for part in parts for line in part).rstrip() + "\n"

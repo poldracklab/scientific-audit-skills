@@ -289,7 +289,9 @@ import subprocess
 from types import SimpleNamespace
 
 from corpus import init_root
+from manifest import load_manifest
 from prepare import Clients, finalize, run_prep, scan_folder
+from review import manifest_problems
 from scan import load_plan, write_plan
 
 CROSSREF = "https://api.crossref.org/works/10.1126/sciadv.abf4355"
@@ -373,6 +375,14 @@ def reviewed_data_archive(make_prepped, bare_repo):
     return review_plan(make_prepped("paper_data_archive"), bare_repo)
 
 
+def accept_all_problems(prepared: Path) -> dict:
+    """Acknowledge every prep problem in `prepared/prep.yaml` (the offline test environment always has some)."""
+    plan = load_plan(prepared / "prep.yaml")
+    plan["accept_failures"] = {p.item: "test environment" for p in manifest_problems(load_manifest(prepared))}
+    write_plan(plan, prepared / "prep.yaml")
+    return plan
+
+
 @pytest.fixture
 def writable_after():
     roots = []
@@ -399,6 +409,7 @@ def prepared_corpus(reviewed_raw, writable_after):
     run_prep(reviewed_raw.raw, reviewed_raw.corpus, reviewed_raw.clients)
     prepared = reviewed_raw.corpus.prepared_dir("Paper_2024")
     writable_after(prepared)
+    accept_all_problems(prepared)
     finalize(prepared)
     return reviewed_raw.corpus
 

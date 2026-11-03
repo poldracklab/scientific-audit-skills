@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Validate the shape of a hand-edited prep.yaml: roles, classes, supplement order, paper count."""
+"""Validate a hand-edited prep.yaml: roles, classes, supplement order, paper count, accept_failures."""
 from collections import Counter
 
 FILE_ROLES = ("paper", "supplement", "data", "archive", "unsorted", "skip")
@@ -45,6 +45,18 @@ def _paper_count(files: list[dict]) -> list[str]:
     return ["more than one file with role paper"] if papers > 1 else []
 
 
+def acceptance_problems(plan: dict) -> list[str]:
+    """`accept_failures`, when present, maps each review item string to a non-empty reason."""
+    accept = plan.get("accept_failures")
+    if accept is None:
+        return []
+    if not isinstance(accept, dict):
+        return ["accept_failures must be a mapping of item -> reason"]
+    return [f"accept_failures: {key}: reason required" for key, reason in accept.items()
+            if not isinstance(key, str) or not isinstance(reason, str) or not reason.strip()]
+
+
 def plan_problems(plan: dict) -> list[str]:
     files, plan_links = plan.get("files", []), plan.get("links", [])
-    return _file_values(files) + _link_values(plan_links) + _supplement_orders(files) + _paper_count(files)
+    return (_file_values(files) + _link_values(plan_links) + _supplement_orders(files) + _paper_count(files)
+            + acceptance_problems(plan))

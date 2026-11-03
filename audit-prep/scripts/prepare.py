@@ -13,6 +13,8 @@ from typing import Callable
 
 import fetch_common
 import manifest as mf
+import plan_check
+import review
 import scan
 import statements
 from archives import extract_archives
@@ -130,6 +132,8 @@ def run_prep(target: Path, corpus: Corpus, clients: Clients | None = None, dry_r
     for step in steps:
         step()
         mf.write_manifest(prepared, m)
+    m["review"] = review.review_manifest(m, plan)
+    mf.write_manifest(prepared, m)
     return m
 
 
@@ -155,13 +159,37 @@ def _unlock_outputs(prepared: Path) -> None:
             _set_writable(prepared / name, True)
 
 
+def load_prepared(folder: Path) -> tuple[dict, dict]:
+    """The manifest and prep.yaml of a folder that `run` has written to."""
+    m = mf.load_manifest(folder)
+    if m is None:
+        raise CorpusError(f"{folder} has no manifest.json; run `prep.py run` first")
+    if not (folder / PLAN_NAME).is_file():
+        raise CorpusError(f"{folder} has no {PLAN_NAME}")
+    plan = scan.load_plan(folder / PLAN_NAME)
+    bad = plan_check.acceptance_problems(plan)
+    if bad:
+        raise PlanError(f"{PLAN_NAME} is not ready:\n" + "\n".join(f"- {b}" for b in bad))
+    return m, plan
+
+
+def _gate(prepared: Path, m: dict, plan: dict) -> None:
+    """Record the review; refuse while any problem is open."""
+    m["review"] = review.review_manifest(m, plan)
+    mf.write_manifest(prepared, m)
+    if m["review"]["status"] != "ok":
+        raise review.ReviewError(review.format_review(m["review"]))
+
+
 def finalize(prepared: Path) -> dict:
     m = mf.load_manifest(prepared)
     if m is None:
         raise CorpusError(f"{prepared} has no manifest.json; run `prep.py run` first")
     if m.get("finalized"):
         return m
+    m, plan = load_prepared(prepared)
     _unlock_outputs(prepared)
+    _gate(prepared, m, plan)
     m["files"] = mf.hash_tree(prepared)
     (prepared / "README.md").write_text(mf.render_readme(m), encoding="utf-8")
     _make_readonly(prepared, keep=prepared / mf.MANIFEST_NAME)
