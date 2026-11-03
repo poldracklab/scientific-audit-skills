@@ -72,3 +72,11 @@ def fixture_xlsx(tmp_path_factory):
     out = tmp_path_factory.mktemp("xlsx") / "supp.xlsx"
     wb.save(out)
     return out
+
+
+@pytest.fixture
+def crossref_fixture():
+    import json
+
+    path = Path(__file__).resolve().parent / "fixtures" / "crossref_work.json"
+    return json.loads(path.read_text())

@@ -1,0 +1,14 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.1126/sciadv.abf4355",
+    "title": ["Example Paper Title"],
+    "author": [{"given": "Jane", "family": "Doe", "sequence": "first"}],
+    "container-title": ["Science Advances"],
+    "issued": {"date-parts": [[2021, 5, 12]]},
+    "type": "journal-article",
+    "relation": {"has-preprint": [{"id": "10.1101/2020.01.01.123456", "id-type": "doi", "asserted-by": "subject"}]},
+    "URL": "https://doi.org/10.1126/sciadv.abf4355"
+  }
+}
