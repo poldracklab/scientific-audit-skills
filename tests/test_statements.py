@@ -1,3 +1,5 @@
+import pytest
+
 from statements import extract_statements, write_statements_md
 
 TEXT = (
@@ -45,3 +47,19 @@ def test_statement_continues_across_page_break():
 def test_heading_at_page_bottom_keeps_next_page_text():
     s = extract_statements("Funding\n\fNIH R01.\n\nOther")
     assert (s[0].text, s[0].page) == ("NIH R01.", 1)
+
+
+def test_empty_statements_md_says_none_found(tmp_path):
+    out = write_statements_md(extract_statements("Intro\nNothing here.\n"), tmp_path / "statements.md")
+    text = out.read_text()
+    assert "were found" in text and "Read the paper text directly" in text
+
+
+def test_acknowledgements_heading():
+    s = extract_statements("Acknowledgements\nThis work was funded by NIH.")
+    assert [(x.kind, x.text) for x in s] == [("acknowledgements", "This work was funded by NIH.")]
+
+
+@pytest.mark.parametrize("heading", ["Acknowledgments", "Acknowledgement", "ACKNOWLEDGEMENTS:"])
+def test_acknowledgement_spellings(heading):
+    assert extract_statements(f"{heading}\nWe thank NSF.")[0].kind == "acknowledgements"

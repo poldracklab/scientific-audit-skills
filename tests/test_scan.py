@@ -89,3 +89,12 @@ def test_unresolved_lists_blockers(raw_folder, crossref_fixture):
 def test_write_and_load_roundtrip(tmp_path):
     p = {"schema_version": 1, "files": [], "links": []}
     assert load_plan(write_plan(p, tmp_path / "prep.yaml")) == p
+
+
+def test_bare_host_link_reason():
+    import links
+    from scan import _link_dict
+
+    entry = _link_dict(links.make_link("https://osf.io/", "p.pdf", 7), None)
+    assert (entry["role"], entry["needs_review"]) == ("skip", False)
+    assert entry["reason"] == "bare host, no identifier (likely a line-wrapped URL)"

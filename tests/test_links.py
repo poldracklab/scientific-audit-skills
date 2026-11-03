@@ -74,3 +74,13 @@ def test_merge_unions_found_in():
     b = Link("u", "https://osf.io/abcde", "osf", "data", True, [{"file": "s", "page": 2}])
     merged = merge_links([a, b])
     assert len(merged) == 1 and len(merged[0].found_in) == 2
+
+
+@pytest.mark.parametrize("raw,cls", [
+    ("https://osf.io", "osf"), ("https://osf.io/", "osf"), ("https://github.com/", "github"),
+    ("https://zenodo.org", "zenodo"), ("https://neurovault.org/", "neurovault"),
+    ("https://openneuro.org", "openneuro"), ("https://figshare.com/", "figshare"),
+    ("https://datadryad.org", "dryad"),
+])
+def test_bare_host_is_skipped(raw, cls):
+    assert classify(canonicalize(raw)) == (cls, "skip", False)

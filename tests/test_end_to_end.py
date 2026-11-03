@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import shutil
@@ -18,6 +19,7 @@ ROLES = {
 
 
 def _review(plan, bare_repo):
+    assert set(ROLES) <= {link["canonical"] for link in plan["links"]}
     plan["reviewed_by"] = "human"
     for item in plan["files"] + plan["links"]:
         item["needs_review"] = False
@@ -35,9 +37,19 @@ def _prepare(tmp_path, raw_folder, clients, bare_repo, writable_after):
     write_plan(plan, raw / "prep.yaml")
     run_prep(raw, corpus, clients)
     prepared = corpus.prepared_dir("Paper_2024")
+    _check_prep_outcomes(prepared)
     writable_after(prepared)
     finalize(prepared)
     return corpus, prepared
+
+
+def _check_prep_outcomes(prepared: Path) -> None:
+    assert (prepared / "data" / "osf_abcde").is_dir()
+    assert (prepared / "preregistration" / "osf_x4c56" / "registration.json").is_file()
+    assert (prepared / "github" / "lab__repo" / ".git").exists()
+    assert not any("hidden-tool" in str(p) for p in prepared.rglob("*"))
+    manifest = json.loads((prepared / "manifest.json").read_text())
+    assert manifest["documents"]["paper"]["conversions"]["structured"] == "failed"
 
 
 def _texts_under(root: Path):
