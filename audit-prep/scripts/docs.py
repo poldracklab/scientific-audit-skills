@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 TOOLS = ("pdftotext", "pdftoppm", "pandoc", "zstd", "docling", "git")
+VERSION_FLAGS = {"pdftotext": "-v", "pdftoppm": "-v"}  # Poppler reads --version as a filename
 DOCLING = ["uvx", "--from", "docling", "docling"]
 
 
@@ -193,6 +194,8 @@ def _first_line(cmd: list[str], timeout: int) -> str | None:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
+    if r.returncode != 0:
+        return None
     lines = (r.stdout or r.stderr).strip().splitlines()
     return lines[0] if lines else None
 
@@ -202,7 +205,7 @@ def _tool_version(tool: str) -> str | None:
         return _first_line(DOCLING + ["--version"], 20) if shutil.which("uvx") else None
     if not shutil.which(tool):
         return None
-    return _first_line([tool, "--version"], 10)
+    return _first_line([tool, VERSION_FLAGS.get(tool, "--version")], 10)
 
 
 def tool_versions(structured: bool = True) -> dict[str, str | None]:
