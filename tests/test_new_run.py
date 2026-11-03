@@ -118,3 +118,17 @@ def test_failed_clone_leaves_no_dest(tmp_path):
     with pytest.raises(CorpusError):
         clone_tree(src, dest, run=fail)
     assert not dest.exists()
+
+
+def test_new_run_refuses_folder_finalized_before_the_gate(prepared_corpus):
+    import json
+    import os
+
+    prepared = prepared_corpus.prepared_dir("Paper_2024")
+    manifest = prepared / "manifest.json"
+    os.chmod(manifest, 0o644)
+    m = json.loads(manifest.read_text())
+    m.pop("review")
+    manifest.write_text(json.dumps(m))
+    with pytest.raises(CorpusError, match="finalize"):
+        new_run(prepared_corpus, "Paper_2024", "m")

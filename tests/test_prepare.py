@@ -488,3 +488,26 @@ def test_plan_rejects_placeholder_acceptance_reason(reviewed_raw, reason):
     msg = "accept_failures: data osf abcde: replace the placeholder with what the auditor will be missing"
     with pytest.raises(PlanError, match=msg):
         checked_plan(reviewed_raw.raw, reviewed_raw.corpus)
+
+
+def _make_writable(root):
+    for dirpath, _, files in os.walk(root):
+        os.chmod(dirpath, 0o755)
+        for name in files:
+            if not (Path(dirpath) / name).is_symlink():
+                os.chmod(Path(dirpath) / name, 0o644)
+
+
+def test_folder_finalized_before_the_gate_can_be_refinalized(reviewed_raw, writable_after):
+    _run(reviewed_raw)
+    p = _prepared(reviewed_raw)
+    writable_after(p)
+    accept_all_problems(p)
+    finalize(p)
+    _make_writable(p)
+    _edit_manifest(p, lambda m: m.update(review=None, plan_sha256=None))
+    assert not is_prepared(p)
+    assert _run(reviewed_raw)["finalized"] is False
+    m = finalize(p)
+    assert m["finalized"] is True and m["review"]["status"] == "ok" and is_prepared(p)
+    assert not os.access(p / "paper" / "paper.pdf", os.W_OK)

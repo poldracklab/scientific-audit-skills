@@ -38,7 +38,7 @@ def test_hash_tree_entries_git_and_symlinks(tmp_path):
 def test_write_load_is_prepared(tmp_path):
     m = new_manifest("X_2020", "human"); write_manifest(tmp_path, m)
     assert load_manifest(tmp_path)["paper_id"] == "X_2020" and not is_prepared(tmp_path)
-    m["finalized"] = True; write_manifest(tmp_path, m); assert is_prepared(tmp_path)
+    m["finalized"] = True; m["review"] = {"status": "ok"}; write_manifest(tmp_path, m); assert is_prepared(tmp_path)
 
 
 def test_load_manifest_missing_or_corrupt(tmp_path):
@@ -107,3 +107,27 @@ def test_readme_renders_failed_review_with_open_problems():
     section = render_readme(m).split("## Prep review")[1].split("## Warnings")[0]
     assert "- Status: FAILED" in section and "no accepted failures" in section
     assert "| Item | Status | Detail |" in section and "code https://gitlab.com/a/b" in section
+
+
+CLEAN_REVIEW = {"status": "ok", "problems": [], "accepted": [], "unused": []}
+
+
+def test_is_prepared_requires_clean_review(tmp_path):
+    m = new_manifest("X_2020", "human"); m["finalized"] = True
+    write_manifest(tmp_path, m)
+    assert not is_prepared(tmp_path)
+    m["review"] = {**CLEAN_REVIEW, "status": "failed"}; write_manifest(tmp_path, m)
+    assert not is_prepared(tmp_path)
+
+
+def _data_row(meta, reason):
+    m = new_manifest("X_2020", "human")
+    m["data"] = [{"source": "openneuro", "id": "ds000001", "status": "ok", "reason": reason,
+                  "files": [{"downloaded": True}], "meta": meta}]
+    return next(line for line in render_readme(m).splitlines() if "ds000001" in line)
+
+
+def test_readme_says_openneuro_is_metadata_only():
+    assert _data_row({"scope": "metadata"}, None).endswith("| metadata only |")
+    assert _data_row({"scope": "metadata"}, "README missing").endswith("| metadata only; README missing |")
+    assert "metadata only" not in _data_row({}, None)

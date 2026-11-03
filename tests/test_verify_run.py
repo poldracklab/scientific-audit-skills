@@ -80,3 +80,12 @@ def test_finder_and_dropbox_metadata_keep_run_ok(run_folder):
     (run_folder / ".dropbox.cache").mkdir()
     (run_folder / ".dropbox.cache" / "blob").write_bytes(b"x")
     assert verify(run_folder) == ("run_ok", [])
+
+
+def test_finalized_without_clean_review_is_not_prepared(tmp_path):
+    from manifest import new_manifest, write_manifest
+
+    m = new_manifest("X_2020", "human")
+    m["finalized"] = True
+    write_manifest(tmp_path, m)
+    assert verify(tmp_path) == ("not_prepared", ["manifest has no clean prep review; run prep.py review"])
