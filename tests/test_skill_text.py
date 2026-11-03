@@ -28,7 +28,10 @@ def test_reproducibility_template_is_blind():
     assert "MODEL" not in t and "identity recorded in the run registry" in t
 
 
-def test_no_scripts_dir_left(): assert not (SKILLS / "reproducibility-audit/scripts").exists()
+def test_reproducibility_scripts_dir_holds_only_launcher():
+    # Fetch scripts moved to audit-prep; only the operator's run launcher remains.
+    scripts = SKILLS / "reproducibility-audit/scripts"
+    assert sorted(p.name for p in scripts.iterdir()) == ["new_run.sh"]
 
 
 def test_neuroimaging_audit_has_intake_and_is_blind():
