@@ -8,13 +8,13 @@ import json
 import sys
 from pathlib import Path
 
-from manifest import hash_tree, load_manifest
+from manifest import hash_tree, is_os_metadata, load_manifest
 
 ALLOWED_EXTRA = ("run.json", "audit")
 
 
 def _is_allowed_extra(rel: str) -> bool:
-    return rel in ALLOWED_EXTRA
+    return rel in ALLOWED_EXTRA or is_os_metadata(Path(rel))
 
 
 def _modified(expected: dict, actual: dict) -> list[str]:

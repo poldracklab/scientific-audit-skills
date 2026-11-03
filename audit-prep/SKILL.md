@@ -172,7 +172,7 @@ uv run ~/.claude/skills/audit-prep/scripts/verify_run.py /abs/corpus/runs/Smith_
 It prints one of `not_prepared`, `prepared_not_run`, `run_ok`, `run_dirty`, `run_modified`,
 then details; exit 0 only for `run_ok`. `run_modified`: a manifest-listed file, or `manifest.json`/`README.md` themselves, changed or is
 missing.
-`run_dirty`: a file outside `audit/` that is not in the manifest. Either way, do not audit it;
+`run_dirty`: a file outside `audit/` that is not in the manifest (Finder and Dropbox metadata such as `.DS_Store` are ignored). Either way, do not audit it;
 make a new run.
 
 Blinding rules:

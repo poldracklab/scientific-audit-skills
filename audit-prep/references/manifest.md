@@ -21,7 +21,7 @@ Written by `scripts/manifest.py`. All paths are relative to the prepared folder,
 | `data` | FetchResult-shaped items, see below. |
 | `local_data` | Author-supplied data, see below. |
 | `unsorted` | `[{original_path, moved_to, reason}]`; files moved to `unsorted/<Paper_Year>/`. |
-| `files` | `[{path, size, sha256}]` for every regular file under the prepared folder except top-level `manifest.json` and `README.md`. Symlinks are skipped; `.git` contents and `prep.yaml` are included. Sorted by path. Used by `verify_run.py`. |
+| `files` | `[{path, size, sha256}]` for every regular file under the prepared folder except top-level `manifest.json` and `README.md`. Symlinks and Finder/Dropbox metadata (`.DS_Store`, `Icon\r`, `.dropbox`, `.dropbox.cache`, at any depth) are skipped; `.git` contents and `prep.yaml` are included. Sorted by path. Used by `verify_run.py`. |
 | `warnings` | `[str]`. |
 
 ## documents entries

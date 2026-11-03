@@ -11,6 +11,7 @@ from pathlib import Path
 SCHEMA_VERSION = 1
 MANIFEST_NAME = "manifest.json"
 DEFAULT_EXCLUDE = ("manifest.json", "README.md")
+OS_METADATA = frozenset({".DS_Store", "Icon\r", ".dropbox", ".dropbox.cache"})
 
 
 def new_manifest(paper_id: str, prepared_by: str) -> dict:
@@ -47,11 +48,16 @@ def _is_excluded(rel: Path, exclude: tuple[str, ...]) -> bool:
     return len(rel.parts) == 1 and rel.name in exclude
 
 
+def is_os_metadata(rel: Path) -> bool:
+    """Finder or Dropbox bookkeeping (.DS_Store, Icon\\r, .dropbox, .dropbox.cache) at any depth."""
+    return any(part in OS_METADATA for part in rel.parts)
+
+
 def hash_tree(root: Path, exclude: tuple[str, ...] = DEFAULT_EXCLUDE, prune: tuple[str, ...] = ()) -> list[dict]:
     entries = []
     for p in root.rglob("*"):
         rel = p.relative_to(root)
-        if rel.parts[0] in prune:
+        if rel.parts[0] in prune or is_os_metadata(rel):
             continue
         if p.is_symlink() or not p.is_file() or _is_excluded(rel, exclude):
             continue
