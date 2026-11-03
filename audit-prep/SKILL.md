@@ -137,6 +137,8 @@ Read `statements.md` and the paper text before editing. Then:
 - OSF links: "preregistered at" means `prereg`; "data/materials/code available at" means `data`.
 - GitHub links: the authors' analysis code is `code`; a cited tool or someone else's package
   is `skip`, reason "cited tool". Article DOIs (citations, preprints) are `skip`.
+- Confirm the `paper` file, and confirm `doi` is the article's own DOI, not a deposit DOI
+  (Zenodo, OSF, figshare, Dryad, OpenNeuro); set it to the article DOI or `null`.
 - Fix supplement `order` to match the paper's numbering; decide `data` versus `unsorted` for
   unrecognized items. Add links the scanner missed, with `found_in` and a reason.
 - Fill `data_collection` (start, end, verbatim `source_quote`, `page`) from the methods, or

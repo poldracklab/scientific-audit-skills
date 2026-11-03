@@ -29,7 +29,7 @@ links:
 | `schema_version` | Plan format version. Currently `1`. Do not edit. |
 | `paper_id` | The raw folder name, `<FirstAuthor>_<Year>`. Becomes `prepared/<paper_id>/`. |
 | `reviewed_by` | Who reviewed the plan: the model name, or `human`. `scan` leaves it `null`; the reviewer must fill it. `run` copies it into the manifest as `prepared_by`. Nothing inside a run folder may name the *auditing* model. `prepared_by` (the model or person who reviewed `prep.yaml`) is present in every run of a paper alike and does not identify the auditor; the audit's model identity lives only in `registry.jsonl`. |
-| `doi` | The paper's DOI, found on the first two pages of the paper PDF. `null` when none was found; the paper entry is then `needs_review: true`. Fill it in by hand if the reviewer finds it. |
+| `doi` | The paper's DOI: the first DOI on the first two pages of the paper PDF that Crossref reports as `journal-article`. Deposit DOIs (`10.5281/zenodo`, `10.17605/osf.io`, `10.6084/m9.figshare`, `10.5061/dryad`, `10.18112/openneuro`) are never candidates. `null` when no candidate is a journal-article; the paper entry is then `needs_review: true`. When Crossref could not be reached, the first candidate is kept unconfirmed and the paper entry needs review. Fill it in by hand if the reviewer finds it. |
 | `data_collection` | When the data were collected, from the paper text. `start` and `end` are ISO dates (`YYYY-MM-DD`, or `YYYY-MM` when only the month is stated); `source_quote` is the verbatim sentence; `page` is its page number. Leave all four `null` if the paper does not say. |
 | `size_policy` | Download caps. `max_file_mb` (default 500) is the largest single file downloaded; `max_source_mb` (default 5000) is the largest total per data source; `skip_ext` (default `mp4 mov avi wav mp3 m4a`) are never downloaded. Sources over a cap are inventoried, not downloaded. Raise a cap only with a reason. |
 | `files` | One entry per top-level item in the raw folder. |
@@ -49,7 +49,8 @@ Roles:
 
 - `paper`: the published article. Exactly one is expected. The scanner picks
   the PDF with a DOI on its first two pages and no supplement marker in its
-  name, preferring the longest; Crossref must report `journal-article`.
+  name (deposit DOIs do not count), preferring the longest; Crossref must report
+  `journal-article`.
 - `supplement`: supplementary material, any file type. A filename stem token
   (split on `-`, `_`, `.`, whitespace; case-insensitive) that is a marker
   (`sm`, `som`, `mmc`, `esm`, `moesm`, `supp`, `supplement`), a marker plus
@@ -75,7 +76,9 @@ Roles:
 | `found_in` | Every `{file, page}` where the link occurs. |
 | `reason` | Why the role was proposed, or the reviewer's one-line justification. |
 
-The paper's own DOI is pre-set to `role: skip` with reason "the paper's own doi".
+The paper's own DOI is pre-set to `role: skip` with reason "the paper's own doi" only
+when Crossref confirmed it as a `journal-article`; an unconfirmed `doi` keeps its link's
+normal class and role with `needs_review: true`.
 A known data or code host with no identifier (for example `https://osf.io/`, left
 when a URL wraps across lines) is pre-set to `role: skip` with reason "bare host,
 no identifier (likely a line-wrapped URL)"; check that the full link is listed too.
@@ -108,8 +111,9 @@ layouts are often missed.
    is `data`; of a registration is `prereg`; of another article (a citation, a
    preprint) is `skip`. Unknown hosts are `skip` unless the paper names them as
    where its data or code live.
-6. **Files.** Confirm the paper; fix `order` so supplements follow the paper's
-   own numbering; decide whether an unrecognized file or directory is `data` or
+6. **Files.** Confirm the paper, and confirm `doi` is the article's own DOI, not a deposit DOI
+   (a Zenodo, OSF, figshare, Dryad or OpenNeuro DOI is where the data live, not
+   the paper); fix `order` so supplements follow the paper's own numbering; decide whether an unrecognized file or directory is `data` or
    `unsorted`. A paper without a DOI may still be the paper: set `doi` if the
    reviewer can find it, otherwise leave it `null` and say why in `reason`.
 7. **Add missed links.** If the paper names a data, code or prereg location
