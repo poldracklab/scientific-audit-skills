@@ -11,9 +11,9 @@ import pymupdf
 import yaml
 
 import links
+import residue
 from paper_doi import DoiChoice, choose_paper_doi
 
-RESIDUE_NAMES = {".git", ".venv", ".pytest_cache", "__pycache__", ".DS_Store"}
 SUPPLEMENT_MARKERS = ("supp", "_sm", "som", "mmc", "esm", "moesm", "supplement")
 TOKEN_SPLIT = re.compile(r"[-_.\s]+")
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz", ".tar.zst", ".zst", ".7z")
@@ -71,9 +71,15 @@ def _is_archive(name: str) -> bool:
 
 
 def _is_residue(entry: Path) -> bool:
-    if entry.name in RESIDUE_NAMES:
+    if residue.is_residue_name(entry.name):
         return True
     return entry.suffix.lower() == ".txt" and entry.with_suffix(".pdf").exists()
+
+
+def _classify_dir(entry: Path) -> dict:
+    if residue.is_data_only_dir(entry):
+        return _entry(entry.name, "data", "directory of data files")
+    return _entry(entry.name, "data", "directory: data or residue?", True)
 
 
 def _classify_other(entry: Path) -> dict:
@@ -82,7 +88,7 @@ def _classify_other(entry: Path) -> dict:
     if _is_archive(entry.name):
         return _entry(entry.name, "archive", "archive extension")
     if entry.is_dir():
-        return _entry(entry.name, "data", "directory")
+        return _classify_dir(entry)
     if has_supplement_marker(entry.name):
         return _entry(entry.name, "supplement", _marker_reason(entry.name))
     return _entry(entry.name, "data", "unrecognized file; data or residue?", True)

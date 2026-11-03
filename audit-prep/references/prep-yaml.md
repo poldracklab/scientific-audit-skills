@@ -57,11 +57,18 @@ Roles:
   digits (`mmc1`, `MOESM1`), or a word starting with `supp` (`supplementary`);
   or a PDF with the same DOI as the paper. Author names such as `Somerville`
   do not match. Numbered by filename.
-- `data`: a directory or file the authors shared as data or code.
+- `data`: a directory or file the authors shared as data or code. A directory
+  holding only data-like files (`.csv .tsv .json .mat .rds .rda .sav .nii
+  .nii.gz .hdr .img .parquet .xlsx .txt .dat .h5 .npy .zip .tar*`) is `data`
+  without review; any other directory is `data` with `needs_review: true`,
+  reason "directory: data or residue?".
 - `archive`: `.zip .tar .tar.gz .tgz .tar.zst .zst .7z`. Confirm it holds the authors' material, not residue.
-- `unsorted`: residue (`.git`, `.venv`, `.pytest_cache`, `__pycache__`,
-  `.DS_Store`, a `.txt` next to a same-stem PDF). Moved to
-  `unsorted/<paper_id>/`, never deleted.
+- `unsorted`: residue, matched on the basename: environments and caches
+  (`.git`, `.venv`, `venv`, `renv`, `.pytest_cache`, `__pycache__`,
+  `node_modules`, `.ipynb_checkpoints`, `.Rproj.user`, `.Rhistory`, `.quarto`,
+  `.DS_Store`), earlier audit output (`audit-*`, `*_files`, `figs_paper`,
+  `*_audit.qmd`, `*_audit.html`, `osf_prereg`), and a `.txt` next to a
+  same-stem PDF. Moved to `unsorted/<paper_id>/`, never deleted.
 - `skip`: leave in place and do nothing with it. Needs a reason.
 
 ## `links` entries
