@@ -3,13 +3,17 @@
 # dependencies = []
 # ///
 """Review a manifest for prep problems and apply the plan's explicit `accept_failures`."""
+import hashlib
+import json
 from dataclasses import asdict, dataclass
+
+from plan_check import PLACEHOLDER
 
 EXTRACT_PROBLEMS = {"failed", "skipped"}
 CODE_PROBLEMS = {"failed", "unsupported"}
 FETCHED_ROLES = ("prereg", "code", "data")
-PLACEHOLDER = "<why this is acceptable>"
 INCOMPLETE = ("run", "run", "incomplete", "prep.py run did not reach its final step; rerun it")
+MODIFIED = ("plan", "plan", "modified", "prep.yaml changed after run (files, links or roles); rerun prep.py run")
 NESTED = "nested archive is listed, not extracted; extract by hand or accept"
 
 
@@ -50,7 +54,8 @@ def _conversions(m: dict) -> list[Problem]:
 def _metadata(m: dict) -> list[Problem]:
     if m.get("metadata") is not None:
         return []
-    return [Problem("metadata", "metadata crossref", "missing", _warning(m, lambda w: "crossref" in w or "doi" in w))]
+    detail = _warning(m, lambda w: "crossref" in w or "doi" in w)
+    return [Problem("metadata", "metadata crossref", "missing", detail)]
 
 
 def _local_entry(m: dict, e: dict) -> Problem | None:
@@ -97,6 +102,16 @@ def run_incomplete(m: dict) -> Problem | None:
     return Problem(*INCOMPLETE) if review is None or _marked_incomplete(review) else None
 
 
+def plan_sha256(plan: dict) -> str:
+    """Hash of the plan as `run` executed it; `accept_failures` is left out so acknowledging never trips it."""
+    kept = {k: v for k, v in plan.items() if k != "accept_failures"}
+    return hashlib.sha256(json.dumps(kept, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def plan_modified(m: dict, plan: dict) -> Problem | None:
+    return None if m.get("plan_sha256") == plan_sha256(plan) else Problem(*MODIFIED)
+
+
 def _review(problems: list[Problem], plan: dict) -> dict:
     accept = plan.get("accept_failures") or {}
     items = {p.item for p in problems}
@@ -112,9 +127,9 @@ def review_manifest(m: dict, plan: dict) -> dict:
 
 
 def review_folder(m: dict, plan: dict) -> dict:
-    """`review_manifest` for a folder checked after the fact: also flags a run that never finished."""
-    incomplete = run_incomplete(m)
-    return _review(([incomplete] if incomplete else []) + manifest_problems(m) + unfetched_links(m, plan), plan)
+    """`review_manifest` for a folder checked after the fact: also flags an unfinished run or an edited plan."""
+    gate = [p for p in (run_incomplete(m), plan_modified(m, plan)) if p]
+    return _review(gate + manifest_problems(m) + unfetched_links(m, plan), plan)
 
 
 def _failed_lines(problems: list[dict]) -> list[str]:

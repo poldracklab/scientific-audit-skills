@@ -9,6 +9,8 @@ FILE_ROLES = ("paper", "supplement", "data", "archive", "unsorted", "skip")
 LINK_ROLES = ("prereg", "code", "data", "unknown", "skip")
 LINK_CLASSES = ("osf", "github", "zenodo", "figshare", "dryad", "openneuro", "neurovault", "aspredicted",
                 "clinicaltrials", "prospero", "doi", "other")
+PLACEHOLDER = "<why this is acceptable>"
+UNACCEPTABLE = ("run", "plan")
 
 
 def _bad_value(name: str, key: str, value, allowed: tuple[str, ...]) -> list[str]:
@@ -56,10 +58,12 @@ def acceptance_problems(plan: dict) -> list[str]:
 
 
 def _acceptance_problem(key, reason) -> str | None:
-    if key == "run":
-        return "accept_failures: run: cannot be accepted; rerun prep.py run instead"
+    if key in UNACCEPTABLE:
+        return f"accept_failures: {key}: cannot be accepted; rerun prep.py run instead"
     if not isinstance(key, str) or not isinstance(reason, str) or not reason.strip():
         return f"accept_failures: {key}: reason required"
+    if reason.strip() == PLACEHOLDER:
+        return f"accept_failures: {key}: replace the placeholder with what the auditor will be missing"
     return None
 
 
