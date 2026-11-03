@@ -1,0 +1,20 @@
+{
+  "data": {
+    "id": "x4c56",
+    "type": "registrations",
+    "attributes": {
+      "title": "Example preregistration",
+      "date_registered": "2020-05-06T12:00:00.000000",
+      "date_created": "2020-05-06T11:00:00.000000",
+      "registration_supplement": "OSF Preregistration",
+      "withdrawn": false,
+      "embargoed": false,
+      "registered_meta": {
+        "hypothesis": {
+          "value": "H1: effect is positive.",
+          "extra": []
+        }
+      }
+    }
+  }
+}

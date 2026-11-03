@@ -1,0 +1,11 @@
+{
+  "data": {
+    "id": "abcde",
+    "type": "nodes",
+    "attributes": {
+      "title": "Example project",
+      "date_created": "2019-01-01T00:00:00",
+      "public": true
+    }
+  }
+}

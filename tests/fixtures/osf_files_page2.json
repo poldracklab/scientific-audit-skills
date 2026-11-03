@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "id": "f0lder",
+      "type": "files",
+      "attributes": {
+        "kind": "folder",
+        "name": "data",
+        "size": null,
+        "extra": {}
+      },
+      "relationships": {
+        "files": {
+          "links": {
+            "related": {
+              "href": "https://api.osf.io/v2/nodes/abcde/files/osfstorage/f0lder/"
+            }
+          }
+        }
+      },
+      "links": {}
+    }
+  ],
+  "links": {
+    "next": null,
+    "meta": {
+      "total": 1
+    }
+  }
+}

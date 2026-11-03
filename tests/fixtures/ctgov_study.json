@@ -1,0 +1,11 @@
+{
+  "protocolSection": {
+    "identificationModule": {
+      "nctId": "NCT01234567",
+      "briefTitle": "Example trial"
+    },
+    "statusModule": {
+      "studyFirstSubmitDate": "2019-03-04"
+    }
+  }
+}

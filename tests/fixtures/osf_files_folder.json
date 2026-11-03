@@ -1,0 +1,25 @@
+{
+  "data": [
+    {
+      "id": "t1",
+      "type": "files",
+      "attributes": {
+        "kind": "file",
+        "name": "trials.csv",
+        "size": 2048,
+        "extra": {
+          "hashes": {}
+        }
+      },
+      "links": {
+        "download": "https://osf.io/download/t1/"
+      }
+    }
+  ],
+  "links": {
+    "next": null,
+    "meta": {
+      "total": 1
+    }
+  }
+}

@@ -167,3 +167,38 @@ def raw_folder(tmp_path, fixture_pdf, fixture_docx):
         return raw
 
     return make
+
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+OSF = "https://api.osf.io/v2"
+OSF_ROUTES = {
+    f"{OSF}/nodes/abcde/": "osf_node.json",
+    f"{OSF}/nodes/abcde/files/osfstorage/": "osf_files_page1.json",
+    f"{OSF}/nodes/abcde/files/osfstorage/?page=2": "osf_files_page2.json",
+    f"{OSF}/nodes/abcde/files/osfstorage/f0lder/": "osf_files_folder.json",
+    f"{OSF}/registrations/x4c56/": "osf_registration.json",
+    f"{OSF}/registrations/x4c56/files/osfstorage/": "osf_registration_files.json",
+}
+
+
+def _load_fixture(name: str) -> dict:
+    import json
+
+    return json.loads((FIXTURES / name).read_text())
+
+
+@pytest.fixture
+def osf_api():
+    import urllib.error
+
+    def get_json(url: str) -> dict:
+        if url in OSF_ROUTES:
+            return _load_fixture(OSF_ROUTES[url])
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+
+    return get_json
+
+
+@pytest.fixture
+def ctgov_fixture():
+    return _load_fixture("ctgov_study.json")

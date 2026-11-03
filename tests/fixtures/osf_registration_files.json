@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "id": "p1",
+      "type": "files",
+      "attributes": {
+        "kind": "file",
+        "name": "prereg.pdf",
+        "size": 12,
+        "extra": {
+          "hashes": {
+            "md5": "00000000000000000000000000000000",
+            "sha256": "50816383e34c59850261b78f464ea4633d3ef41070fca3880cb2b19ab35f461a"
+          }
+        }
+      },
+      "links": {
+        "download": "https://osf.io/download/p1/"
+      }
+    }
+  ],
+  "links": {
+    "next": null,
+    "meta": {
+      "total": 1
+    }
+  }
+}

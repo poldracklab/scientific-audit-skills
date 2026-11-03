@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "id": "r1",
+      "type": "files",
+      "attributes": {
+        "kind": "file",
+        "name": "readme.txt",
+        "size": null,
+        "extra": {
+          "hashes": {
+            "md5": "00000000000000000000000000000000",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "links": {
+        "download": "https://osf.io/download/r1/"
+      }
+    },
+    {
+      "id": "v1",
+      "type": "files",
+      "attributes": {
+        "kind": "file",
+        "name": "video.mp4",
+        "size": 12000000,
+        "extra": {
+          "hashes": {}
+        }
+      },
+      "links": {
+        "download": "https://osf.io/download/v1/"
+      }
+    }
+  ],
+  "links": {
+    "next": "https://api.osf.io/v2/nodes/abcde/files/osfstorage/?page=2",
+    "meta": {
+      "total": 2
+    }
+  }
+}
