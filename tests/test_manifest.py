@@ -32,7 +32,7 @@ def test_hash_tree_entries_git_and_symlinks(tmp_path):
     entries = hash_tree(tmp_path)
     assert [e["path"] for e in entries] == ["a.txt", "code/.git/HEAD", "code/manifest.json"]
     assert entries[0]["size"] == 1
-    assert entries[0]["sha256"] == "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afd2cd68"
+    assert entries[0]["sha256"] == "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
 
 
 def test_write_load_is_prepared(tmp_path):
