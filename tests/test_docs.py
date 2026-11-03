@@ -1,8 +1,10 @@
+import json
 import shutil
 
 import pytest
 
 from docs import (
+    _index_docling,
     docx_to_md,
     pdf_to_pages,
     pdf_to_structured,
@@ -50,3 +52,51 @@ def test_structured_smoke(fixture_pdf, tmp_path):
 
 def test_tool_versions_keys():
     assert set(tool_versions()) == {"pdftotext", "pdftoppm", "pandoc", "zstd", "docling", "git"}
+
+
+PNG = b"\x89PNG\r\n\x1a\nfakepng"
+
+
+@pytest.fixture
+def docling_dir(tmp_path):
+    work = tmp_path / "work"
+    (work / "paper_artifacts").mkdir(parents=True)
+    (work / "paper_artifacts" / "image_000000_ab.png").write_bytes(PNG)
+    doc = {
+        "texts": [{"text": "Figure 1. A brain."}, {"text": "Table 1. Results."}],
+        "pictures": [
+            {
+                "image": {"uri": "paper_artifacts/image_000000_ab.png"},
+                "captions": [{"$ref": "#/texts/0"}],
+                "prov": [{"page_no": 3}],
+            }
+        ],
+        "tables": [
+            {
+                "data": {"grid": [[{"text": "a"}, {"text": "b"}], [{"text": "1"}, {"text": "2"}]]},
+                "captions": [{"$ref": "#/texts/1"}],
+                "prov": [{"page_no": 5}],
+            }
+        ],
+    }
+    (work / "paper.json").write_text(json.dumps(doc))
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "paper.md").write_text("Text\n\n![Image](paper_artifacts/image_000000_ab.png)\n")
+    return work / "paper.json", out
+
+
+def test_index_docling_figures_and_tables(docling_dir):
+    json_path, out = docling_dir
+    assert _index_docling(json_path, out) == (1, 1)
+    assert (out / "figures" / "fig-01.png").read_bytes() == PNG
+    assert "| fig-01.png | 3 | Figure 1. A brain. |" in (out / "figures" / "figures.md").read_text()
+    assert (out / "tables" / "table-01.csv").read_text().splitlines() == ["a,b", "1,2"]
+    assert "| table-01.csv | 5 | Table 1. Results. |" in (out / "tables" / "tables.md").read_text()
+
+
+def test_index_docling_rewrites_markdown_image_links(docling_dir):
+    json_path, out = docling_dir
+    _index_docling(json_path, out)
+    text = (out / "paper.md").read_text()
+    assert "![Image](figures/fig-01.png)" in text and "paper_artifacts" not in text
