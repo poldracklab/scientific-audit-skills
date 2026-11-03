@@ -98,19 +98,19 @@ def _tar_dir(src: Path, out: Path) -> None:
         tar.add(src, arcname=src.name)
 
 
-def _shape_paper_supp(raw: Path, pdf: Path) -> None:
+def _shape_paper_supp(raw: Path, pdf: Path, docx: Path) -> None:
     shutil.copy(pdf, raw / "paper.pdf")
     shutil.copy(pdf, raw / "paper_sm.pdf")
 
 
-def _shape_paper_data_archive(raw: Path, pdf: Path) -> None:
+def _shape_paper_data_archive(raw: Path, pdf: Path, docx: Path) -> None:
     shutil.copy(pdf, raw / "paper.pdf")
     (raw / "mydata").mkdir()
     (raw / "mydata" / "trials.csv").write_text("trial,rt\n1,0.5\n")
     _tar_dir(raw / "mydata", raw / "mydata.tar.gz")
 
 
-def _shape_paper_residue(raw: Path, pdf: Path) -> None:
+def _shape_paper_residue(raw: Path, pdf: Path, docx: Path) -> None:
     shutil.copy(pdf, raw / "paper.pdf")
     (raw / ".venv").mkdir()
     (raw / ".venv" / "pyvenv.cfg").write_text("home = /usr/bin\n")
@@ -119,8 +119,13 @@ def _shape_paper_residue(raw: Path, pdf: Path) -> None:
     (raw / "paper.txt").write_text("text dump of paper.pdf\n")
 
 
-def _shape_paper_nodoi(raw: Path, pdf: Path) -> None:
+def _shape_paper_nodoi(raw: Path, pdf: Path, docx: Path) -> None:
     _nodoi_pdf(raw / "nodoi.pdf")
+
+
+def _shape_paper_supp_docx(raw: Path, pdf: Path, docx: Path) -> None:
+    shutil.copy(pdf, raw / "paper.pdf")
+    shutil.copy(docx, raw / "1-s2.0-S1878929323001421-mmc1.docx")
 
 
 SHAPES = {
@@ -128,15 +133,16 @@ SHAPES = {
     "paper_data_archive": _shape_paper_data_archive,
     "paper_residue": _shape_paper_residue,
     "paper_nodoi": _shape_paper_nodoi,
+    "paper_supp_docx": _shape_paper_supp_docx,
 }
 
 
 @pytest.fixture
-def raw_folder(tmp_path, fixture_pdf):
+def raw_folder(tmp_path, fixture_pdf, fixture_docx):
     def make(shape: str) -> Path:
         raw = tmp_path / shape / "Paper_2024"
         raw.mkdir(parents=True)
-        SHAPES[shape](raw, fixture_pdf)
+        SHAPES[shape](raw, fixture_pdf, fixture_docx)
         return raw
 
     return make
