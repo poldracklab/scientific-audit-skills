@@ -100,3 +100,17 @@ def test_find_dois_lists_article_candidates_in_order():
 
     text = "10.5281/zenodo.1 then 10.1101/pre.1 and 10.1126/x.2, again 10.1101/pre.1"
     assert find_dois(text) == ["10.1101/pre.1", "10.1126/x.2"]
+
+
+@pytest.mark.parametrize("url,cls", [
+    ("https://doi.org/10.5281/zenodo.123456", "zenodo"),
+    ("https://doi.org/10.6084/m9.figshare.7654321.v2", "figshare"),
+    ("https://doi.org/10.5061/dryad.abc123", "dryad"),
+    ("https://doi.org/10.18112/openneuro.ds000001.v1.0.0", "openneuro"),
+])
+def test_repository_doi_classified_by_prefix(url, cls):
+    assert classify(url) == (cls, "data", False)
+
+
+def test_bare_zenodo_doi_classified_as_zenodo():
+    assert classify(canonicalize("10.5281/zenodo.4432816")) == ("zenodo", "data", False)
