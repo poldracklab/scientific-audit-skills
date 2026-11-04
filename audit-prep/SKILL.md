@@ -8,7 +8,7 @@ description: >
 
 # Audit prep
 
-Prepare common starting materials once: the publication, supplements, and its directly
+Prepare common starting materials once: the publication, any published correction, supplements, and its directly
 linked data, code and preregistrations. Convert documents, record provenance and retrieval
 gaps, then freeze a snapshot for every model. Discovery of additional relevant evidence
 belongs to auditing and is part of the evaluated capability.
@@ -28,7 +28,7 @@ prepare their own inputs or register their own model identity.
   registry.jsonl              # operator-only run ID -> model mapping
 ```
 
-Raw folders stay in place. Only selected paper, supplement, data and archive entries are
+Raw folders stay in place. Only selected paper, supplement, corrigendum, data and archive entries are
 copied into the draft. Files marked `skip` and `unsorted` remain in the raw folder and are
 excluded from prepared inputs and audit runs. Never delete supplied material.
 
@@ -37,7 +37,9 @@ and these source directories:
 
 - `paper/`: `paper.pdf`, `paper.txt`, page images in `pages/`, metadata, links and statements;
   supplements named `supplement_<order>`. Structured conversion adds Markdown, `figures/`
-  and `tables/`. DOCX supplements become Markdown; XLSX sheets become CSVs.
+  and `tables/`. DOCX supplements become Markdown; XLSX sheets become CSVs. A published
+  correction (corrigendum, erratum, correction notice) is `corrigendum_<order>`, converted
+  like a supplement; the README tells auditors to audit the paper as corrected.
 - `preregistration/<source>_<id>/`: registration files, metadata and dates.
 - `github/<owner>__<repo>/`: code with its `.git` history and recorded commit.
 - `data/<original_name>/`: supplied data and archives; fetched sources use
@@ -120,6 +122,9 @@ See [prep-yaml.md](references/prep-yaml.md) for the schema and detailed examples
   supporting the role in `reason`. **Never delete a line**; exclude an item with `role: skip`.
 - Confirm the `paper` file, and confirm `doi` is the article's own DOI, not a deposit DOI.
   Set the article DOI or `null`; number supplements in the paper's order.
+- A published correction to the paper is `role: corrigendum` (numbered by publication date),
+  never `paper` or `supplement`, even when its file name has no marker. Its DOI is not the
+  paper's `doi`. Correction notices for other articles are `skip`.
 - Fetch directly linked study data, code and preregistrations. Distinguish an OSF project
   from a registration using the surrounding statement. For linked OSF files and a derived
   parent-project link, choose either the needed files or the whole project, skipping the

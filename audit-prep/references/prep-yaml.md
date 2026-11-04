@@ -51,8 +51,8 @@ links:
 | Key | Meaning |
 |---|---|
 | `path` | A top-level name in the raw folder; absolute paths, parent traversal and nested paths are rejected. A selected directory includes its contents. |
-| `role` | `paper`, `supplement`, `data`, `archive`, `unsorted`, or `skip`. |
-| `order` | Supplements only: 1, 2, ... sets the name `supplement_<order>`. `null` otherwise. |
+| `role` | `paper`, `supplement`, `corrigendum`, `data`, `archive`, `unsorted`, or `skip`. |
+| `order` | Supplements and corrigenda only: 1, 2, ... sets the name `supplement_<order>` or `corrigendum_<order>`. `null` otherwise. |
 | `needs_review` | `true` when the scanner could not decide. |
 | `reason` | One line saying why the role was proposed (or chosen). |
 
@@ -68,6 +68,13 @@ Roles:
   digits (`mmc1`, `MOESM1`), or a word starting with `supp` (`supplementary`);
   or a PDF with the same DOI as the paper. Author names such as `Somerville`
   do not match. Numbered by filename.
+- `corrigendum`: a published correction to the paper (corrigendum, erratum,
+  correction notice). A filename stem token `corrigendum`, `erratum`, `errata` or
+  `correction`, optionally followed by digits, marks it; such a file is never a paper
+  candidate. Numbered separately from supplements (`corrigendum_1`, ...), in publication
+  order. Converted like a supplement; the README tells the auditor to audit the paper as
+  corrected. A correction without a marker in its name is proposed as a supplement or
+  paper candidate: set it to `corrigendum` by hand.
 - `data`: a directory or file the authors shared as data or code. A directory
   holding only data-like files (`.csv .tsv .json .mat .rds .rda .sav .nii
   .nii.gz .hdr .img .parquet .xlsx .txt .dat .h5 .npy .zip .tar*`) is `data`
@@ -167,7 +174,7 @@ layouts are often missed.
 `run` checks the plan and refuses to start, listing each blocker, while
 `reviewed_by` is empty, any entry has `needs_review: true`, no file or more
 than one file has `role: paper`, a file or link `role` or a link `class` is not
-one of the values listed above, a supplement `order` is missing, not an integer
-or used twice, or a selected `files[].path` does not exist. Selected inputs must
+one of the values listed above, a supplement or corrigendum `order` is missing, not an
+integer or used twice, or a selected `files[].path` does not exist. Selected inputs must
 contain only ordinary files/directories: symbolic links, including nested or broken
 links, are rejected. Materialize needed targets before creating the draft.

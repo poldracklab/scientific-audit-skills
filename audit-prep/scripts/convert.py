@@ -2,13 +2,14 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Convert the paper and supplements, extract statements, and record Crossref metadata."""
+"""Convert the paper, supplements and corrigenda, extract statements, and record Crossref metadata."""
 import json
 import shutil
 from pathlib import Path
 from typing import Callable
 
 import crossref
+import manifest as mf
 import statements
 from layout import STATEMENTS
 
@@ -21,9 +22,7 @@ DONE = {"ok", "skipped"}  # `skipped` means an earlier run recorded the output a
 
 def previous_conversions(manifest: dict) -> dict[str, dict]:
     """Conversion statuses of the manifest a rerun starts from, by document path."""
-    docs_ = manifest.get("documents") or {}
-    found = ([docs_["paper"]] if docs_.get("paper") else []) + list(docs_.get("supplements") or [])
-    return {d["path"]: d.get("conversions") or {} for d in found}
+    return {d["path"]: d.get("conversions") or {} for d in mf.all_documents(manifest)}
 
 
 def _attempt(action: Callable, label: str, m: dict) -> str:
@@ -86,7 +85,7 @@ def _paper_statements(paper_dir: Path, doc: dict, m: dict) -> None:
     doc["conversions"]["statements"] = "skipped" if out.exists() else _attempt(write, label, m)
 
 
-def _process_supplement(prepared: Path, doc: dict, ctx: tuple, run, structured: bool) -> None:
+def _process_attachment(prepared: Path, doc: dict, ctx: tuple, run, structured: bool) -> None:
     src = prepared / doc["path"]
     work, suffix = src.with_suffix(""), src.suffix.lower()
     doc["conversions"] = dict(NOT_APPLICABLE)
@@ -109,8 +108,9 @@ def process_documents(prepared: Path, manifest: dict, run, previous: dict | None
         ctx = (manifest, previous.get(paper["path"], {}))
         _process_pdf(prepared / paper["path"], prepared / "paper", paper, ctx, run, structured)
         _paper_statements(prepared / "paper", paper, manifest)
-    for doc in manifest["documents"]["supplements"]:
-        _process_supplement(prepared, doc, (manifest, previous.get(doc["path"], {})), run, structured)
+    attachments = manifest["documents"]["supplements"] + manifest["documents"].get("corrigenda", [])
+    for doc in attachments:
+        _process_attachment(prepared, doc, (manifest, previous.get(doc["path"], {})), run, structured)
 
 
 def record_metadata(prepared: Path, plan: dict, manifest: dict, get_json: Callable) -> None:

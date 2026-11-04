@@ -86,7 +86,11 @@ autoaudit/
   Poldrack_2026/
     paper.pdf
     supplement.docx
+    corrigendum.pdf      # optional: a published correction (also erratum, correction)
 ```
+
+A correction to the paper is prepared beside it as `paper/corrigendum_<n>.pdf`, and the
+auditors are told to audit the paper as corrected.
 
 ### 1. Initialize the corpus (once)
 
@@ -124,6 +128,12 @@ role, an unretrievable dataset), fix them interactively:
 ```sh
 ~/.claude/skills/audit-prep/scripts/prep_paper.sh --interactive /path/to/autoaudit/Poldrack_2026
 ```
+
+To start over, add `--overwrite`. It first removes the earlier prep of that paper:
+`prepared/Poldrack_2026/` (even when finalized), the generated `prep.yaml` and
+`statements.md` in the raw folder, and its transcripts in `logs/prep/`. The supplied files
+are kept, and so are any audit runs in `runs/Poldrack_2026/`, which still reflect the old
+snapshot (the launcher prints a note when there are any).
 
 ### 3. Create a blinded run and audit it
 
@@ -188,7 +198,10 @@ The agent runs in a new `runs/Poldrack_2026/consensus/<consensus_id>/` folder:
   writes `consensus.html`.
 
 Afterwards the launcher writes `run_models.json` and re-renders the report, so the
-run-to-model mapping appears in its appendix. Harness selection and `--interactive` work as
+run-to-model mapping appears in its appendix. It then writes `consensus_unblinded.html`,
+a copy of the report with every run ID replaced by its model name (a model that audited
+more than once is shown as `model (run_id)`). The consensus agent never sees the names;
+`consensus.html` stays blinded. Harness selection and `--interactive` work as
 they do for `new_run.sh`.
 
 **The redaction is permanent.** It rewrites the original transcripts and notes in each
@@ -203,6 +216,7 @@ changes nothing.
 runs/Poldrack_2026/consensus/<consensus_id>/   # <consensus_id> = UTC timestamp + 4 random characters
   inputs.json       # runs reconciled (with audit.qmd hashes), runs skipped, redaction counts
   consensus.qmd     consensus.html
+  consensus_unblinded.html   # the report with run IDs replaced by model names
   R/  results/      # the consensus agent's own adjudication analyses and their output
   run_models.json   # run ID -> model, written by the launcher after the agent finishes
   agent_log.jsonl   # headless transcript

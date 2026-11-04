@@ -7,6 +7,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
+from manifest import all_documents
 from plan_check import PLACEHOLDER, UNACCEPTABLE
 
 EXTRACT_PROBLEMS = {"failed", "skipped"}
@@ -39,15 +40,10 @@ def _paper(m: dict) -> list[Problem]:
     return [Problem("paper", "paper", "missing", "no paper role in prep.yaml")]
 
 
-def _documents(m: dict) -> list[dict]:
-    docs = m.get("documents") or {}
-    return ([docs["paper"]] if docs.get("paper") else []) + list(docs.get("supplements") or [])
-
-
 def _conversions(m: dict) -> list[Problem]:
     return [Problem("conversion", f"conversion {doc['path']} {name}", status,
                     _warning(m, lambda w, label=f"{doc['path']} {name}": w.startswith(label)))
-            for doc in _documents(m) for name, status in (doc.get("conversions") or {}).items()
+            for doc in all_documents(m) for name, status in (doc.get("conversions") or {}).items()
             if status == "failed"]
 
 

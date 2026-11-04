@@ -2,11 +2,12 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Validate a hand-edited prep.yaml: roles, classes, supplement order, paper count, accept_failures."""
+"""Validate a hand-edited prep.yaml: roles, classes, supplement and corrigendum order, paper count, accept_failures."""
 from collections import Counter
 from pathlib import Path
 
-FILE_ROLES = ("paper", "supplement", "data", "archive", "unsorted", "skip")
+FILE_ROLES = ("paper", "supplement", "corrigendum", "data", "archive", "unsorted", "skip")
+NUMBERED_ROLES = ("supplement", "corrigendum")
 LINK_ROLES = ("prereg", "code", "data", "unknown", "skip")
 LINK_CLASSES = ("osf", "github", "zenodo", "figshare", "dryad", "openneuro", "neurovault", "aspredicted",
                 "clinicaltrials", "prospero", "doi", "other")
@@ -40,11 +41,11 @@ def _is_int(value) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _supplement_orders(files: list[dict]) -> list[str]:
-    supplements = [f for f in files if f.get("role") == "supplement"]
-    msgs = [f"{f.get('path')}: supplement order must be an integer" for f in supplements if not _is_int(f.get("order"))]
-    counts = Counter(f["order"] for f in supplements if _is_int(f.get("order")))
-    return msgs + [f"supplement order {n} is used more than once" for n, c in sorted(counts.items()) if c > 1]
+def _orders(files: list[dict], role: str) -> list[str]:
+    numbered = [f for f in files if f.get("role") == role]
+    msgs = [f"{f.get('path')}: {role} order must be an integer" for f in numbered if not _is_int(f.get("order"))]
+    counts = Counter(f["order"] for f in numbered if _is_int(f.get("order")))
+    return msgs + [f"{role} order {n} is used more than once" for n, c in sorted(counts.items()) if c > 1]
 
 
 def _paper_count(files: list[dict]) -> list[str]:
@@ -78,5 +79,5 @@ def plan_problems(plan: dict) -> list[str]:
     files, plan_links = plan.get("files", []), plan.get("links", [])
     options = [] if isinstance(plan.get("structured_conversion", True), bool) else ["structured_conversion must be a boolean"]
     return (options + _file_paths(files) + _file_values(files) + _link_values(plan_links)
-            + _supplement_orders(files) + _paper_count(files)
+            + [m for role in NUMBERED_ROLES for m in _orders(files, role)] + _paper_count(files)
             + acceptance_problems(plan))

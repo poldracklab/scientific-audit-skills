@@ -17,6 +17,7 @@ from osf_links import annotate_osf_links
 from paper_doi import DoiChoice, choose_paper_doi
 
 SUPPLEMENT_MARKERS = ("supp", "_sm", "som", "mmc", "esm", "moesm", "supplement")
+CORRIGENDUM_MARKERS = ("corrigendum", "erratum", "errata", "correction")
 TOKEN_SPLIT = re.compile(r"[-_.\s]+")
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz", ".tar.zst", ".zst", ".7z")
 DOI_PAGES = 2
@@ -57,6 +58,19 @@ def _marker_reason(name: str) -> str:
     return "name marker " + _matching_marker(name)
 
 
+def _corrigendum_marker(name: str) -> str | None:
+    tokens = TOKEN_SPLIT.split(Path(name).stem.lower())
+    return next((m for m in CORRIGENDUM_MARKERS for t in tokens if re.fullmatch(m + r"\d*", t)), None)
+
+
+def has_corrigendum_marker(name: str) -> bool:
+    return _corrigendum_marker(name) is not None
+
+
+def _corrigendum_entry(name: str) -> dict:
+    return _entry(name, "corrigendum", "name marker " + _corrigendum_marker(name))
+
+
 def _first_pages(pdf: Path) -> tuple[str, int]:
     with pymupdf.open(pdf) as doc:
         return "\n".join(doc[i].get_text() for i in range(min(DOI_PAGES, len(doc)))), len(doc)
@@ -91,6 +105,8 @@ def _classify_other(entry: Path) -> dict:
         return _entry(entry.name, "archive", "archive extension")
     if entry.is_dir():
         return _classify_dir(entry)
+    if has_corrigendum_marker(entry.name):
+        return _corrigendum_entry(entry.name)
     if has_supplement_marker(entry.name):
         return _entry(entry.name, "supplement", _marker_reason(entry.name))
     return _entry(entry.name, "data", "unrecognized file; data or residue?", True)
@@ -114,16 +130,24 @@ def _candidate_entry(cand, paper) -> dict:
     return _entry(pdf.name, "supplement", "second pdf without marker; supplement or other paper?", True)
 
 
+def _marked_pdf(pdf: Path) -> dict | None:
+    if has_corrigendum_marker(pdf.name):
+        return _corrigendum_entry(pdf.name)
+    if has_supplement_marker(pdf.name):
+        return _entry(pdf.name, "supplement", _marker_reason(pdf.name))
+    return None
+
+
 def _classify_pdfs(pdfs: list[Path]) -> list[dict]:
-    marked = [_entry(p.name, "supplement", _marker_reason(p.name)) for p in pdfs if has_supplement_marker(p.name)]
-    candidates = [(p, *pdf_info(p)) for p in pdfs if not has_supplement_marker(p.name)]
+    marked = {p: entry for p in pdfs if (entry := _marked_pdf(p))}
+    candidates = [(p, *pdf_info(p)) for p in pdfs if p not in marked]
     paper = _pick_paper(candidates)
-    return marked + [_candidate_entry(c, paper) for c in candidates]
+    return list(marked.values()) + [_candidate_entry(c, paper) for c in candidates]
 
 
-def _number_supplements(entries: list[dict]) -> None:
-    supplements = sorted((e for e in entries if e["role"] == "supplement"), key=lambda e: e["path"])
-    for order, entry in enumerate(supplements, start=1):
+def _number(entries: list[dict], role: str) -> None:
+    numbered = sorted((e for e in entries if e["role"] == role), key=lambda e: e["path"])
+    for order, entry in enumerate(numbered, start=1):
         entry["order"] = order
 
 
@@ -135,7 +159,8 @@ def classify_files(raw: Path) -> list[dict]:
     entries = sorted(raw.iterdir())
     pdfs = [e for e in entries if _is_pdf(e)]
     classified = _classify_pdfs(pdfs) + [_classify_other(e) for e in entries if not _is_pdf(e)]
-    _number_supplements(classified)
+    _number(classified, "supplement")
+    _number(classified, "corrigendum")
     return sorted(classified, key=lambda e: e["path"])
 
 

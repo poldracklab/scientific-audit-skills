@@ -8,7 +8,8 @@ from corpus import Corpus, CorpusError
 PLAN_NAME = "prep.yaml"
 STATEMENTS = "statements.md"
 OWN_FILES = {PLAN_NAME, STATEMENTS}
-SELECTED_ROLES = {"paper", "supplement", "data", "archive"}
+SELECTED_ROLES = {"paper", "supplement", "corrigendum", "data", "archive"}
+DOCUMENT_LISTS = {"supplement": "supplements", "corrigendum": "corrigenda"}
 
 
 def locate(target: Path, corpus: Corpus) -> tuple[Path, str]:
@@ -38,8 +39,8 @@ def _destination(entry: dict, prepared: Path) -> Path | None:
     suffix = Path(name).suffix.lower()
     if role == "paper":
         return prepared / "paper" / f"paper{suffix}"
-    if role == "supplement":
-        return prepared / "paper" / f"supplement_{entry['order']}{suffix}"
+    if role in DOCUMENT_LISTS:
+        return prepared / "paper" / f"{role}_{entry['order']}{suffix}"
     if role in ("data", "archive"):
         return prepared / "data" / name
     return None
@@ -83,12 +84,12 @@ def _copy(src: Path, dest: Path) -> None:
 
 def _record_file(entry: dict, dest: Path, prepared: Path, m: dict, previous: dict) -> None:
     role, name = entry["role"], entry["path"]
-    if role in ("paper", "supplement"):
+    if role == "paper" or role in DOCUMENT_LISTS:
         doc = {"original_name": name, "path": _rel(dest, prepared), "pages": None, "conversions": {}}
         if role == "paper":
             m["documents"]["paper"] = doc
         else:
-            m["documents"]["supplements"].append(doc)
+            m["documents"][DOCUMENT_LISTS[role]].append(doc)
     else:
         record = {"original_path": name, "path": _rel(dest, prepared)}
         if role == "archive":
@@ -99,7 +100,7 @@ def _record_file(entry: dict, dest: Path, prepared: Path, m: dict, previous: dic
 def apply_file_plan(prepared: Path, plan: dict, corpus: Corpus, manifest: dict) -> None:
     raw = corpus.root / prepared.name
     previous = {e["original_path"]: e.get("extracted") for e in manifest["local_data"] if e.get("archive")}
-    manifest.update(documents={"paper": None, "supplements": []}, local_data=[], unsorted=[])
+    manifest.update(documents={"paper": None, "supplements": [], "corrigenda": []}, local_data=[], unsorted=[])
     for entry, dest in _planned(plan, prepared):
         if dest is None:
             manifest["unsorted"].append({"original_path": entry["path"],
@@ -108,7 +109,8 @@ def apply_file_plan(prepared: Path, plan: dict, corpus: Corpus, manifest: dict) 
             continue
         _copy(raw / entry["path"], dest)
         _record_file(entry, dest, prepared, manifest, previous)
-    manifest["documents"]["supplements"].sort(key=lambda d: d["path"])
+    for key in DOCUMENT_LISTS.values():
+        manifest["documents"][key].sort(key=lambda d: d["path"])
 
 
 def create_draft(raw: Path, prepared: Path) -> Path:

@@ -13,7 +13,7 @@ Written by `scripts/manifest.py`. Paths use POSIX separators and are relative to
 | `prepared_by` | Model name or `human`; copied from `prep.yaml` `reviewed_by`. |
 | `finalized` | `false` until preparation completes (`run` resets it to `false`); `is_prepared` requires `true` and a `review` with `status: ok`, so a folder finalized before the failure gate existed is not prepared (`verify_run.py` says "manifest has no clean prep review; run prep.py review"): make it writable, rerun `run`, then `finalize`. |
 | `metadata` | `{doi, title, authors[], journal, published, relations[]}` or null if not fetched. |
-| `documents` | `{paper, supplements[]}`. `paper` is null until set. |
+| `documents` | `{paper, supplements[], corrigenda[]}`. `paper` is null until set. `corrigenda` holds published corrections (`paper/corrigendum_<order>.*`); manifests made before it existed lack the key. |
 | `links` | `[{url, canonical, found_in:[{file,page}], class, role, needs_review, reason, status, fetched_to}]`: the reviewed `prep.yaml` link plus its fetch `status` and `fetched_to`. |
 | `preregistration` | `[{source, id, path, date_registered, status, reason}]`. OSF registrations also carry `title`, `type`, `withdrawn` and `files: [{name, sha256_expected, sha256_actual, verified}]`, where per-file `verified` is `true`, `false` (hash mismatch) or `null` (no frozen hash). |
 | `data_collection` | `{start, end, source_quote, page}` or null. |

@@ -25,7 +25,7 @@ def new_manifest(paper_id: str, prepared_by: str) -> dict:
         "prepared_by": prepared_by,
         "finalized": False,
         "metadata": None,
-        "documents": {"paper": None, "supplements": []},
+        "documents": {"paper": None, "supplements": [], "corrigenda": []},
         "links": [],
         "preregistration": [],
         "data_collection": None,
@@ -135,6 +135,12 @@ def _header(m: dict) -> list[str]:
     return lines
 
 
+def all_documents(manifest: dict) -> list[dict]:
+    """The paper, then supplements, then corrigenda; older manifests have no corrigenda."""
+    docs = manifest.get("documents") or {}
+    paper = [docs["paper"]] if docs.get("paper") else []
+    return paper + list(docs.get("supplements") or []) + list(docs.get("corrigenda") or [])
+
 def _doc_row(role: str, doc: dict) -> list:
     conv = ", ".join(f"{k}={v}" for k, v in (doc.get("conversions") or {}).items())
     return [role, doc.get("path"), doc.get("pages"), conv]
@@ -144,8 +150,18 @@ def _documents(m: dict) -> list[str]:
     docs = m.get("documents") or {}
     rows = [_doc_row("paper", docs["paper"])] if docs.get("paper") else []
     rows += [_doc_row("supplement", d) for d in docs.get("supplements") or []]
+    corrigenda = docs.get("corrigenda") or []
+    rows += [_doc_row("corrigendum", d) for d in corrigenda]
     body = _table(["Role", "File", "Pages", "Conversions"], rows) if rows else []
-    return _section("Documents", body, "none")
+    return _section("Documents", _correction_notice(corrigenda) + body, "none")
+
+
+def _correction_notice(corrigenda: list[dict]) -> list[str]:
+    if not corrigenda:
+        return []
+    files = ", ".join(f"`{d.get('path')}`" for d in corrigenda)
+    return [f"**A correction to this paper was published** ({files}). Read it with the paper and "
+            "audit the paper as corrected: a corrected value, figure or claim replaces the original.", ""]
 
 
 def _preregistration(m: dict) -> list[str]:

@@ -79,6 +79,7 @@ runs/<Paper_Year>/<run_id>/       # your cwd
     figures/  tables/                       # crops and CSVs, indexed in figures.md / tables.md
     metadata.json  links.json  statements.md
     supplement_1.pdf  supplement_1.txt ...
+    corrigendum_1.pdf corrigendum_1.txt     # only if a correction was published
   preregistration/<source>_<id>/            # e.g. osf_<regid>/, clinicaltrials_<nct>/
   github/<owner>__<repo>/                   # authors' code at the commit in the manifest
   data/
@@ -104,7 +105,7 @@ and which directly linked artifacts remain missing.
 
 ## Stage 2: Read everything before computing
 
-- **Read the whole paper** (`paper/paper.txt`, supplements beside it). List every inferential statistic in Results and every figure with its caption claims (n's, what the error bands are, which panel is which).
+- **Read the whole paper** (`paper/paper.txt`, supplements beside it). If `paper/corrigendum_*` exists, read every correction first and audit the paper as corrected: a corrected number, figure or claim replaces the original, and reproducing the original value is not a discrepancy if the correction changed it. Say in the report which claims the correction touched, and whether the posted data and code match the original or the corrected version. List every inferential statistic in Results and every figure with its caption claims (n's, what the error bands are, which panel is which).
 - **Read the prereg in full** (the files under `preregistration/<source>_<id>/`), noting page numbers. Record:
   - the **outcome hierarchy** (primary / secondary / exploratory);
   - the stated hypotheses and analysis models;

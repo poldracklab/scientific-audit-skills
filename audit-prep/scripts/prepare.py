@@ -99,7 +99,7 @@ def print_plan(folder: Path, plan: dict, corpus: Corpus) -> None:
     print(f"COPY selected inputs from {corpus.root / folder.name} -> {show(prepared)}")
     for entry, dest in _planned(plan, prepared):
         print(f"COPY {entry['path']} -> {show(dest)}" if dest else f"EXCLUDE {entry['path']} ({entry['role']})")
-        if entry["role"] in ("paper", "supplement"):
+        if entry["role"] in ("paper", "supplement", "corrigendum"):
             print(f"CONVERT {show(dest)}")
     for link in plan.get("links", []):
         if link.get("role") in ("prereg", "code", "data"):
