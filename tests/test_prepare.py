@@ -513,3 +513,32 @@ def test_folder_finalized_before_the_gate_can_be_refinalized(reviewed_raw, writa
     m = finalize(p)
     assert m["finalized"] is True and m["review"]["status"] == "ok" and is_prepared(p)
     assert not os.access(p / "paper" / "paper.pdf", os.W_OK)
+
+
+def test_run_prepares_corrigendum_beside_paper(reviewed_corrigendum):
+    m = _run(reviewed_corrigendum)
+    p = _prepared(reviewed_corrigendum)
+    [corr] = m["documents"]["corrigenda"]
+    assert corr["original_name"] == "paper_corrigendum.pdf" and corr["path"] == "paper/corrigendum_1.pdf"
+    assert corr["conversions"]["text"] == "ok" and corr["conversions"]["pages"] == "ok"
+    assert corr["conversions"]["statements"] == "not_applicable" and corr["pages"] == 2
+    for rel in ("paper/corrigendum_1.pdf", "paper/corrigendum_1.txt", "paper/corrigendum_1/pages/p-001.png"):
+        assert (p / rel).is_file(), rel
+    assert [s["path"] for s in m["documents"]["supplements"]] == ["paper/supplement_1.pdf"]
+
+
+def test_dry_run_lists_corrigendum_conversion(reviewed_corrigendum, capsys):
+    c = reviewed_corrigendum
+    run_prep(c.raw, c.corpus, c.clients, dry_run=True)
+    out = capsys.readouterr().out
+    assert "COPY paper_corrigendum.pdf -> prepared/Paper_2024/paper/corrigendum_1.pdf" in out
+    assert "CONVERT prepared/Paper_2024/paper/corrigendum_1.pdf" in out
+
+
+def test_finalized_readme_points_auditor_to_corrigendum(reviewed_corrigendum, writable_after):
+    _run(reviewed_corrigendum)
+    prepared = _prepared(reviewed_corrigendum)
+    writable_after(prepared)
+    accept_all_problems(prepared)
+    finalize(prepared)
+    assert "paper/corrigendum_1.pdf" in (prepared / "README.md").read_text()

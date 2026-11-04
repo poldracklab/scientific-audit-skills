@@ -242,3 +242,83 @@ def test_interactive_openrouter(fake_env, corpus):
     assert args[:3] == ["run", "--model", "openrouter/qwen/qwen3-coder"] and len(args) == 4
     assert_prep_prompt(args[3], corpus, "qwen/qwen3-coder")
     assert prep_logs(corpus) == []
+
+
+@pytest.fixture
+def earlier_prep(corpus):
+    """Leftovers of an earlier prep: a finalized (read-only) draft, scan outputs and transcripts."""
+    raw = corpus / "Smith_2021"
+    (raw / "paper.pdf").write_text("pdf")
+    (raw / "prep.yaml").write_text("reviewed_by: someone\n")
+    (raw / "statements.md").write_text("# statements\n")
+    draft = corpus / "prepared" / "Smith_2021"
+    (draft / "paper").mkdir(parents=True)
+    (draft / "paper" / "paper.pdf").write_text("pdf")
+    for path in (draft / "paper" / "paper.pdf", draft / "paper", draft):
+        path.chmod(0o555 if path.is_dir() else 0o444)
+    logs = corpus / "logs" / "prep"
+    logs.mkdir(parents=True)
+    (logs / "Smith_2021-20261101T000000Z.jsonl").write_text("old\n")
+    (logs / "Smith_2021b-20261101T000000Z.jsonl").write_text("other paper\n")
+    (corpus / "prepared" / "Jones_2020").mkdir()
+    yield corpus
+    for dirpath, dirnames, _ in os.walk(corpus):
+        for name in dirnames:
+            os.chmod(Path(dirpath) / name, 0o755)
+
+
+def test_without_overwrite_earlier_prep_is_kept(fake_env, earlier_prep):
+    env, _ = fake_env
+    result = run_script(env, earlier_prep / "Smith_2021")
+    assert result.returncode == 0, result.stderr
+    assert (earlier_prep / "prepared" / "Smith_2021" / "paper" / "paper.pdf").exists()
+    assert (earlier_prep / "Smith_2021" / "prep.yaml").exists()
+    assert len(prep_logs(earlier_prep)) == 2
+
+
+def test_overwrite_removes_earlier_prep_and_logs(fake_env, earlier_prep):
+    env, log = fake_env
+    result = run_script(env, "--overwrite", earlier_prep / "Smith_2021")
+    assert result.returncode == 0, result.stderr
+    assert not (earlier_prep / "prepared" / "Smith_2021").exists()
+    assert not (earlier_prep / "Smith_2021" / "prep.yaml").exists()
+    assert not (earlier_prep / "Smith_2021" / "statements.md").exists()
+    [transcript] = prep_logs(earlier_prep)
+    assert transcript.name != "Smith_2021-20261101T000000Z.jsonl"
+    assert log.exists()
+
+
+def test_overwrite_keeps_supplied_files_and_other_papers(fake_env, earlier_prep):
+    env, _ = fake_env
+    assert run_script(env, "--overwrite", earlier_prep / "Smith_2021").returncode == 0
+    assert (earlier_prep / "Smith_2021" / "paper.pdf").read_text() == "pdf"
+    assert (earlier_prep / "prepared" / "Jones_2020").is_dir()
+    assert (earlier_prep / "logs" / "prep" / "Smith_2021b-20261101T000000Z.jsonl").exists()
+
+
+@pytest.mark.parametrize("flags", [["--overwrite", "--interactive"], ["--interactive", "--overwrite"]])
+def test_overwrite_combines_with_interactive(fake_env, earlier_prep, flags):
+    env, log = fake_env
+    result = run_script(env, *flags, earlier_prep / "Smith_2021")
+    assert result.returncode == 0, result.stderr
+    args, _ = claude_call(log)
+    assert args[:2] == ["--model", "claude-opus-5-5"] and len(args) == 3
+    assert not (earlier_prep / "prepared" / "Smith_2021").exists()
+    assert prep_logs(earlier_prep) == []
+
+
+def test_overwrite_warns_about_existing_audit_runs_and_keeps_them(fake_env, earlier_prep):
+    env, _ = fake_env
+    run = earlier_prep / "runs" / "Smith_2021" / "abcd2345"
+    run.mkdir(parents=True)
+    result = run_script(env, "--overwrite", earlier_prep / "Smith_2021")
+    assert result.returncode == 0, result.stderr
+    assert run.is_dir()
+    assert "runs/Smith_2021" in result.stderr
+
+
+def test_unknown_flag_prints_usage(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, "--bogus", corpus / "Smith_2021")
+    assert result.returncode == 2 and "usage" in result.stderr.lower()
+    assert not log.exists()

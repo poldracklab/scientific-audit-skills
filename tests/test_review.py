@@ -139,3 +139,8 @@ def test_structural_problems_cannot_be_accepted_by_review_api(clean):
     assert result["status"] == "failed"
     assert {p["item"] for p in result["problems"]} == {"run", "plan"}
     assert result["accepted"] == []
+
+
+def test_failed_corrigendum_conversion_is_a_problem(clean):
+    clean["documents"]["corrigenda"] = [{"path": "paper/corrigendum_1.pdf", "conversions": {"text": "failed"}}]
+    assert [p.item for p in manifest_problems(clean)] == ["conversion paper/corrigendum_1.pdf text"]

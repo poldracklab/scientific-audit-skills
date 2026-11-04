@@ -21,6 +21,7 @@ FAKE_QUARTO = """#!/usr/bin/env bash
 pwd -P > "$FAKE_LOG.quarto.cwd"
 printf "%s\\0" "$@" > "$FAKE_LOG.quarto"
 [ -f run_models.json ] && cp run_models.json "$FAKE_LOG.quarto.models"
+[ -n "${FAKE_HTML:-}" ] && echo "$FAKE_HTML" > consensus.html
 exit 0
 """
 RESULT_LINE = '{"type":"result","subtype":"success","result":"CONSENSUS DONE"}'
@@ -167,6 +168,23 @@ def test_models_attached_and_report_rendered_after_agent(fake_env, corpus):
     assert log.with_name(log.name + ".quarto").read_bytes().decode().split("\0")[:-1] == ["render", "consensus.qmd"]
     assert Path(log.with_name(log.name + ".quarto.cwd").read_text().strip()) == out
     assert log.with_name(log.name + ".quarto.models").exists()
+
+
+def test_unblinded_copy_written_after_render(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_QMD"] = "1"
+    env["FAKE_HTML"] = "<p>a1 F1; b2 F3</p>"
+    assert run_script(env, corpus, "P").returncode == 0
+    out = consensus_dirs(corpus)[0]
+    assert (out / "consensus.html").read_text().strip() == "<p>a1 F1; b2 F3</p>"
+    assert (out / "consensus_unblinded.html").read_text().strip() == "<p>claude-opus-5-5 F1; gpt-5.6-sol F3</p>"
+
+
+def test_no_unblinded_copy_without_rendered_report(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_QMD"] = "1"
+    assert run_script(env, corpus, "P").returncode == 0
+    assert not (consensus_dirs(corpus)[0] / "consensus_unblinded.html").exists()
 
 
 def test_no_render_when_agent_wrote_no_report(fake_env, corpus):

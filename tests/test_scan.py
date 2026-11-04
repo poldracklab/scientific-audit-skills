@@ -1,6 +1,7 @@
 import pytest
 
-from scan import build_plan, classify_files, has_supplement_marker, load_plan, unresolved, write_plan
+from scan import (build_plan, classify_files, has_corrigendum_marker, has_supplement_marker, load_plan,
+                  unresolved, write_plan)
 
 SUPPLEMENT_NAMES = [
     "abf4355_sm.pdf",
@@ -212,7 +213,7 @@ def _file(plan, path):
 def test_unresolved_rejects_unknown_file_role(settled_plan):
     _file(settled_plan, "paper_sm.pdf")["role"] = "supplementary"
     assert unresolved(settled_plan) == [
-        "paper_sm.pdf: unknown role 'supplementary' (allowed: paper, supplement, data, archive, unsorted, skip)"]
+        "paper_sm.pdf: unknown role 'supplementary' (allowed: paper, supplement, corrigendum, data, archive, unsorted, skip)"]
 
 
 def test_unresolved_rejects_unknown_link_role_and_class(settled_plan):
@@ -263,3 +264,51 @@ def test_scan_resolves_osf_links(raw_folder, crossref_and_osf):
 def test_scan_keeps_link_when_resolution_fails(raw_folder, crossref_only_article):
     canon = _links(build_plan(raw_folder("paper_supp"), get_json=crossref_only_article))
     assert _review_fields(canon["https://osf.io/abcde"]) == ("data", True, "osf project or registration?")
+
+
+CORRIGENDUM_NAMES = ["Smith_2021_corrigendum.pdf", "erratum.pdf", "Smith-2021-Correction.pdf",
+                     "s41562_errata_1.pdf", "Corrigendum2.docx"]
+NON_CORRIGENDUM_NAMES = ["Smith_2021.pdf", "motion_corrected_maps.pdf", "abf4355_sm.pdf", "Correll_2019.pdf"]
+
+
+@pytest.mark.parametrize("name", CORRIGENDUM_NAMES)
+def test_corrigendum_marker_matches(name):
+    assert has_corrigendum_marker(name)
+
+
+@pytest.mark.parametrize("name", NON_CORRIGENDUM_NAMES)
+def test_corrigendum_marker_ignores_other_names(name):
+    assert not has_corrigendum_marker(name)
+
+
+def test_classify_corrigendum_separately_from_supplements(raw_folder):
+    files = {f["path"]: f for f in classify_files(raw_folder("paper_corrigendum"))}
+    assert files["paper.pdf"]["role"] == "paper"
+    corr = files["paper_corrigendum.pdf"]
+    assert corr["role"] == "corrigendum" and corr["order"] == 1 and corr["needs_review"] is False
+    assert files["paper_sm.pdf"]["role"] == "supplement" and files["paper_sm.pdf"]["order"] == 1
+
+
+def test_corrigendum_is_never_the_paper(raw_folder, crossref_fixture):
+    plan = build_plan(raw_folder("paper_corrigendum"), get_json=lambda u: crossref_fixture)
+    assert [f["path"] for f in plan["files"] if f["role"] == "paper"] == ["paper.pdf"]
+
+
+def test_unresolved_accepts_corrigendum(settled_plan):
+    settled_plan["files"].append({"path": "x_erratum.pdf", "role": "corrigendum", "needs_review": False,
+                                  "reason": "r", "order": 1})
+    assert unresolved(settled_plan) == []
+
+
+@pytest.mark.parametrize("order", [None, "1"])
+def test_unresolved_rejects_bad_corrigendum_order(settled_plan, order):
+    settled_plan["files"].append({"path": "x_erratum.pdf", "role": "corrigendum", "needs_review": False,
+                                  "reason": "r", "order": order})
+    assert unresolved(settled_plan) == ["x_erratum.pdf: corrigendum order must be an integer"]
+
+
+def test_unresolved_rejects_duplicate_corrigendum_order(settled_plan):
+    for name in ("a_erratum.pdf", "b_erratum.pdf"):
+        settled_plan["files"].append({"path": name, "role": "corrigendum", "needs_review": False,
+                                      "reason": "r", "order": 1})
+    assert unresolved(settled_plan) == ["corrigendum order 1 is used more than once"]

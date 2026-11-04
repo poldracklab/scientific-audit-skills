@@ -130,6 +130,12 @@ def _shape_paper_supp_docx(raw: Path, pdf: Path, docx: Path) -> None:
     shutil.copy(docx, raw / "1-s2.0-S1878929323001421-mmc1.docx")
 
 
+def _shape_paper_corrigendum(raw: Path, pdf: Path, docx: Path) -> None:
+    shutil.copy(pdf, raw / "paper.pdf")
+    shutil.copy(pdf, raw / "paper_sm.pdf")
+    shutil.copy(pdf, raw / "paper_corrigendum.pdf")
+
+
 DEPOSIT_PAGE1 = "Stopping Task Paper\nData and code are archived at 10.5281/zenodo.4432816 for reuse.\n"
 ARTICLE_PAGE2 = "Citation\ndoi: 10.1126/sciadv.abf4355\n"
 
@@ -158,6 +164,7 @@ SHAPES = {
     "paper_residue": _shape_paper_residue,
     "paper_nodoi": _shape_paper_nodoi,
     "paper_supp_docx": _shape_paper_supp_docx,
+    "paper_corrigendum": _shape_paper_corrigendum,
     "paper_deposit_doi": _shape_paper_deposit_doi,
     "paper_deposit_then_article": _shape_paper_deposit_then_article,
 }
@@ -383,6 +390,11 @@ def prepped_raw(make_prepped):
 @pytest.fixture
 def reviewed_raw(make_prepped, bare_repo):
     return review_plan(make_prepped("paper_supp"), bare_repo)
+
+
+@pytest.fixture
+def reviewed_corrigendum(make_prepped, bare_repo):
+    return review_plan(make_prepped("paper_corrigendum"), bare_repo)
 
 
 @pytest.fixture

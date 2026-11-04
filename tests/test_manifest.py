@@ -14,7 +14,7 @@ def test_new_manifest_has_all_keys():
     m = new_manifest("X_2020", "human")
     assert set(m) >= {"schema_version", "paper_id", "prepared_at", "prep_versions", "prepared_by", "finalized", "metadata", "documents", "links", "preregistration", "data_collection", "code", "data", "local_data", "unsorted", "files", "warnings"}
     assert m["finalized"] is False and m["schema_version"] == 1
-    assert m["documents"] == {"paper": None, "supplements": []}
+    assert m["documents"] == {"paper": None, "supplements": [], "corrigenda": []}
 
 
 def test_hash_tree_excludes_manifest_and_readme(tmp_path):
@@ -130,3 +130,23 @@ def test_readme_says_openneuro_is_metadata_only():
     assert _data_row({"scope": "metadata"}, None).endswith("| metadata only |")
     assert _data_row({"scope": "metadata"}, "README missing").endswith("| metadata only; README missing |")
     assert "metadata only" not in _data_row({}, None)
+
+
+def test_readme_lists_corrigendum_and_tells_auditor_to_use_it():
+    m = new_manifest("X_2020", "human")
+    m["documents"]["corrigenda"] = [{"original_name": "x_corrigendum.pdf", "path": "paper/corrigendum_1.pdf",
+                                     "pages": 1, "conversions": {"text": "ok"}}]
+    text = render_readme(m)
+    assert "| corrigendum | paper/corrigendum_1.pdf |" in text
+    assert "correction" in text.lower() and "paper/corrigendum_1.pdf" in text.split("|")[0]
+
+
+def test_readme_without_corrigendum_has_no_correction_notice():
+    m = new_manifest("X_2020", "human")
+    assert "corrigend" not in render_readme(m).lower()
+
+
+def test_readme_renders_legacy_documents_without_corrigenda():
+    m = new_manifest("X_2020", "human")
+    m["documents"] = {"paper": None, "supplements": []}
+    assert "# X_2020" in render_readme(m)

@@ -218,3 +218,14 @@ def test_top_level_readme_documents_consensus_launcher():
 def test_consensus_skill_forbids_other_consensus_folders():
     text = _flat((CONSENSUS / "SKILL.md").read_text())
     assert "Never read other folders under `consensus/`" in text
+
+
+def test_audit_skills_tell_auditors_to_read_corrigenda():
+    for skill in ("reproducibility-audit", "neuroimaging-validity-audit"):
+        text = (SKILLS / skill / "SKILL.md").read_text()
+        assert "paper/corrigendum_" in text, skill
+
+
+def test_audit_prep_documents_corrigendum_role():
+    assert "corrigendum" in (SKILLS / "audit-prep/SKILL.md").read_text()
+    assert "`corrigendum`" in (SKILLS / "audit-prep/references/prep-yaml.md").read_text()
