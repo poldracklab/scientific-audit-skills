@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Launch Claude Code to run the audit-prep skill on one raw paper folder.
+# Launch a coding agent to run the audit-prep skill on one raw paper folder.
 #
 # usage: prep_paper.sh [--interactive] <raw_paper_dir> [model]
 #
 # <raw_paper_dir> must sit directly inside a corpus initialized with
-# `prep.py init` (i.e. its parent contains .autoaudit-root). Claude Code runs
+# `prep.py init` (i.e. its parent contains .autoaudit-root). The agent runs
 # in the corpus root. The model defaults to claude-opus-5-5 and is also
-# recorded as the plan's reviewed_by.
+# recorded as the plan's reviewed_by. The harness is chosen from the model
+# name: *claude* -> Claude Code, *gpt* -> Codex, anything else -> opencode
+# via OpenRouter (e.g. qwen/qwen3-coder runs as openrouter/qwen/qwen3-coder).
 #
 # By default the session is headless: it runs with --permission-mode auto,
 # exits when done, writes its transcript to <corpus>/logs/prep/, and exits
@@ -65,12 +67,40 @@ for line in open(sys.argv[1], encoding="utf-8"):
 ' "$1" || true
 }
 
+harness() {
+    case "$(echo "$1" | tr '[:upper:]' '[:lower:]')" in
+        *claude*) echo claude ;;
+        *gpt*)    echo codex ;;
+        *)        echo opencode ;;
+    esac
+}
+
+launch_interactive() {
+    local model="$1" prompt="$2"
+    case "$(harness "$model")" in
+        claude)   exec claude --model "$model" "$prompt" ;;
+        codex)    exec codex --model "$model" "$prompt" ;;
+        opencode) exec opencode run --model "openrouter/$model" "$prompt" ;;
+    esac
+}
+
+launch_headless() {
+    local model="$1" prompt="$2"
+    case "$(harness "$model")" in
+        claude)   claude -p --model "$model" --permission-mode auto \
+                      --output-format stream-json --verbose "$prompt" ;;
+        codex)    codex exec -m "$model" --sandbox workspace-write \
+                      -c sandbox_workspace_write.network_access=true \
+                      --skip-git-repo-check --json "$prompt" ;;
+        opencode) opencode run --auto --model "openrouter/$model" --format json "$prompt" ;;
+    esac
+}
+
 run_headless() {
     local model="$1" prompt="$2" log="$3" status=0
     mkdir -p "$(dirname "$log")"
     echo "Transcript: $log"
-    claude -p --model "$model" --permission-mode auto \
-        --output-format stream-json --verbose "$prompt" > "$log" || status=$?
+    launch_headless "$model" "$prompt" > "$log" || status=$?
     print_result "$log"
     return "$status"
 }
@@ -90,7 +120,7 @@ main() {
     prompt="$(build_prompt "$paper" "$root" "$model")"
     cd "$root"
     if [ "$interactive" = 1 ]; then
-        exec claude --model "$model" "$prompt"
+        launch_interactive "$model" "$prompt"
     fi
     run_headless "$model" "$prompt" "$root/logs/prep/$paper-$(date -u +%Y%m%dT%H%M%SZ).jsonl"
 }

@@ -49,10 +49,10 @@ Core:
   inline, so there is nothing else to install).
 - Node.js / `npx` — `install.sh` first updates any `npx skills`-installed skills.
 - At least one coding agent CLI:
-  [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`; required for
-  `prep_paper.sh`), and optionally [Codex](https://github.com/openai/codex) (`codex`) or
-  [opencode](https://opencode.ai) (`opencode`, with an OpenRouter key) for auditing other
-  models.
+  [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`), and optionally
+  [Codex](https://github.com/openai/codex) (`codex`) or
+  [opencode](https://opencode.ai) (`opencode`, with an OpenRouter key) for preparing and
+  auditing with other models.
 
 Used by `audit-prep`:
 
@@ -100,13 +100,16 @@ uv run ~/.claude/skills/audit-prep/scripts/prep.py init /path/to/autoaudit
 ~/.claude/skills/audit-prep/scripts/prep_paper.sh /path/to/autoaudit/Poldrack_2026
 ```
 
-This starts Claude Code (`claude-opus-5-5` by default; pass another model as a second
-argument) in the corpus root with the audit-prep skill. The model scans the folder, reviews
+This starts a coding agent (`claude-opus-5-5` by default; pass another model as a second
+argument) in the corpus root with the audit-prep skill. The harness is chosen from the
+model name as in step 3: `*claude*` → Claude Code, `*gpt*` → Codex, anything else →
+opencode via OpenRouter (e.g. `prep_paper.sh <paper_dir> qwen/qwen3-coder` runs
+`openrouter/qwen/qwen3-coder`). The model scans the folder, reviews
 `prep.yaml`, fetches linked materials, and finalizes `prepared/Poldrack_2026/` if review is
 clean. `reviewed_by` is set to the model name.
 
-The session is headless: it runs with `--permission-mode auto`, exits when done, prints the
-model's final message, saves the full transcript to
+The session is headless (the same commands as the table in step 3), exits when done, prints
+the model's final message, saves the full transcript to
 `autoaudit/logs/prep/Poldrack_2026-<timestamp>.jsonl`, and returns the agent's exit status.
 
 Then confirm the result:
