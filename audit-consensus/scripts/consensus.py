@@ -2,10 +2,11 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Prepare a blinded consensus folder for one paper's audits, or attach the model mapping.
+"""Prepare a blinded consensus folder for one paper's audits, attach the model mapping, or unblind the report.
 
 usage: consensus.py prepare <paper_id> [--root R]
        consensus.py attach-models <consensus_dir> [--root R]
+       consensus.py unblind <consensus_dir> [--root R]
 """
 import argparse
 import hashlib
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from discover import ConsensusError, check_same_manifest, completed_runs
 from redact import aliases, load_models, outside_audit_leaks, plan_redaction, redact_run, remaining_leaks
+from unblind import unblind_report
 
 ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 ROOT_MARKER = ".autoaudit-root"
@@ -132,20 +134,26 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="consensus.py", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("prepare").add_argument("paper_id")
-    sub.add_parser("attach-models").add_argument("consensus_dir", type=Path)
-    for name in ("prepare", "attach-models"):
+    for name in ("attach-models", "unblind"):
+        sub.add_parser(name).add_argument("consensus_dir", type=Path)
+    for name in ("prepare", "attach-models", "unblind"):
         sub.choices[name].add_argument("--root", type=Path)
     return parser
+
+
+def _run_command(root: Path, args: argparse.Namespace) -> Path:
+    if args.command == "prepare":
+        return prepare(root, args.paper_id)
+    if args.command == "attach-models":
+        return attach_models(root, args.consensus_dir)
+    return unblind_report(args.consensus_dir)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         root = _root(args.root)
-        if args.command == "prepare":
-            print(prepare(root, args.paper_id))
-        else:
-            print(attach_models(root, args.consensus_dir))
+        print(_run_command(root, args))
     except ConsensusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

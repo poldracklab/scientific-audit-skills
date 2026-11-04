@@ -6,10 +6,11 @@ which issues are confirmed, how severe they are, and whether they change a major
 
 - `scripts/consensus.sh [--interactive] <paper_id> [<model>]` is the operator's launcher.
   Run it from the corpus root; the default model is `claude-opus-5-5`.
-- `scripts/consensus.py prepare|attach-models` handles discovery, completeness and manifest
-  checks, model-name redaction, the consensus folder and `inputs.json`, and the
-  post-run `run_models.json`.
-- `scripts/discover.py` and `scripts/redact.py` are the helpers behind it.
+- `scripts/consensus.py prepare|attach-models|unblind` handles discovery, completeness and
+  manifest checks, model-name redaction, the consensus folder and `inputs.json`, the
+  post-run `run_models.json`, and `consensus_unblinded.html` (the rendered report with run
+  IDs replaced by model names).
+- `scripts/discover.py`, `scripts/redact.py` and `scripts/unblind.py` are the helpers behind it.
 - `SKILL.md` tells the consensus agent what to do; `templates/consensus_template.qmd` is
   the report shape.
 

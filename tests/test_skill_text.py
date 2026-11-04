@@ -206,7 +206,7 @@ def test_consensus_template_is_blind():
 
 def test_consensus_scripts_dir_contents():
     names = sorted(p.name for p in (CONSENSUS / "scripts").iterdir() if p.name != "__pycache__")
-    assert names == ["consensus.py", "consensus.sh", "discover.py", "redact.py"]
+    assert names == ["consensus.py", "consensus.sh", "discover.py", "redact.py", "unblind.py"]
 
 
 def test_top_level_readme_documents_consensus_launcher():

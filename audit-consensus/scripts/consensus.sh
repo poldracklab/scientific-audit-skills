@@ -11,7 +11,8 @@
 # Before the agent starts, model names in the completed source runs are
 # replaced with run IDs (consensus.py prepare). After it finishes, the
 # run-ID -> model mapping is written to run_models.json and the report is
-# re-rendered so it appears in the appendix.
+# re-rendered so it appears in the appendix. consensus.html stays blinded;
+# consensus_unblinded.html is a copy with each run ID replaced by its model name.
 set -euo pipefail
 
 DEFAULT_MODEL="claude-opus-5-5"
@@ -140,6 +141,10 @@ finish_report() {
     uv run --quiet "$scripts/consensus.py" attach-models "$PWD" --root "$root" > /dev/null
     if [ -f consensus.qmd ]; then
         quarto render consensus.qmd || echo "warning: re-render with model mapping failed" >&2
+    fi
+    if [ -f consensus.html ]; then
+        uv run --quiet "$scripts/consensus.py" unblind "$PWD" --root "$root" ||
+            echo "warning: could not write consensus_unblinded.html" >&2
     fi
 }
 
