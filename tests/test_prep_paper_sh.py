@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parent.parent / "audit-prep" / "scripts" / "prep_paper.sh"
-FAKE_CLAUDE = """#!/usr/bin/env bash
+FAKE_AGENT = """#!/usr/bin/env bash
 pwd -P > "$FAKE_LOG.cwd"
+echo "$(basename "$0")" > "$FAKE_LOG.name"
 printf "%s\\0" "$@" > "$FAKE_LOG"
 [ -n "${FAKE_OUTPUT:-}" ] && printf "%b\\n" "$FAKE_OUTPUT"
 exit "${FAKE_STATUS:-0}"
@@ -18,10 +19,11 @@ exit "${FAKE_STATUS:-0}"
 def fake_env(tmp_path):
     bindir = tmp_path / "bin"
     bindir.mkdir()
-    claude = bindir / "claude"
-    claude.write_text(FAKE_CLAUDE)
-    claude.chmod(0o755)
-    log = tmp_path / "claude.log"
+    for name in ("claude", "codex", "opencode"):
+        agent = bindir / name
+        agent.write_text(FAKE_AGENT)
+        agent.chmod(0o755)
+    log = tmp_path / "agent.log"
     env = dict(os.environ, PATH=f"{bindir}:{os.environ['PATH']}", FAKE_LOG=str(log))
     return env, log
 
@@ -40,10 +42,21 @@ def run_script(env, *args, cwd=None):
     )
 
 
-def claude_call(log):
+def agent_call(log):
     args = log.read_bytes().decode().split("\0")[:-1]
     cwd = Path(log.with_name(log.name + ".cwd").read_text().strip())
+    name = log.with_name(log.name + ".name").read_text().strip()
+    return name, args, cwd
+
+
+def claude_call(log):
+    name, args, cwd = agent_call(log)
+    assert name == "claude"
     return args, cwd
+
+
+def flag_value(args, flag):
+    return args[args.index(flag) + 1]
 
 
 def test_script_is_executable():
@@ -164,3 +177,68 @@ def test_model_can_be_overridden(fake_env, corpus):
     args, _ = claude_call(log)
     assert args[args.index("--model") + 1] == "claude-sonnet-5-5"
     assert "reviewed_by: claude-sonnet-5-5" in args[-1]
+
+
+def test_codex_headless(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, corpus / "Smith_2021", "gpt-5.5")
+    assert result.returncode == 0, result.stderr
+    name, args, cwd = agent_call(log)
+    assert name == "codex" and cwd == corpus
+    assert args[0] == "exec"
+    assert flag_value(args, "-m") == "gpt-5.5"
+    assert flag_value(args, "--sandbox") == "workspace-write"
+    assert flag_value(args, "-c") == "sandbox_workspace_write.network_access=true"
+    assert "--skip-git-repo-check" in args and "--json" in args
+    assert_prep_prompt(args[-1], corpus, "gpt-5.5")
+    assert len(prep_logs(corpus)) == 1
+
+
+def test_openrouter_headless(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, corpus / "Smith_2021", "qwen/qwen3-coder")
+    assert result.returncode == 0, result.stderr
+    name, args, cwd = agent_call(log)
+    assert name == "opencode" and cwd == corpus
+    assert args[0] == "run" and "--auto" in args
+    assert flag_value(args, "--model") == "openrouter/qwen/qwen3-coder"
+    assert flag_value(args, "--format") == "json"
+    assert_prep_prompt(args[-1], corpus, "qwen/qwen3-coder")
+    assert len(prep_logs(corpus)) == 1
+
+
+def test_openrouter_headless_propagates_failure(fake_env, corpus):
+    env, _ = fake_env
+    env["FAKE_STATUS"] = "5"
+    result = run_script(env, corpus / "Smith_2021", "qwen/qwen3-coder")
+    assert result.returncode == 5
+
+
+def test_harness_choice_ignores_case(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, corpus / "Smith_2021", "anthropic/Claude-Sonnet-5-5")
+    assert result.returncode == 0, result.stderr
+    name, _, _ = agent_call(log)
+    assert name == "claude"
+
+
+def test_interactive_codex(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, "--interactive", corpus / "Smith_2021", "gpt-5.5")
+    assert result.returncode == 0, result.stderr
+    name, args, cwd = agent_call(log)
+    assert name == "codex" and cwd == corpus
+    assert args[:2] == ["--model", "gpt-5.5"] and len(args) == 3
+    assert_prep_prompt(args[2], corpus, "gpt-5.5")
+    assert prep_logs(corpus) == []
+
+
+def test_interactive_openrouter(fake_env, corpus):
+    env, log = fake_env
+    result = run_script(env, "--interactive", corpus / "Smith_2021", "qwen/qwen3-coder")
+    assert result.returncode == 0, result.stderr
+    name, args, cwd = agent_call(log)
+    assert name == "opencode" and cwd == corpus
+    assert args[:3] == ["run", "--model", "openrouter/qwen/qwen3-coder"] and len(args) == 4
+    assert_prep_prompt(args[3], corpus, "qwen/qwen3-coder")
+    assert prep_logs(corpus) == []
