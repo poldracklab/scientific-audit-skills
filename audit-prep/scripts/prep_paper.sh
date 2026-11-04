@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch a coding agent to run the audit-prep skill on one raw paper folder.
 #
-# usage: prep_paper.sh [--interactive] <raw_paper_dir> [model]
+# usage: prep_paper.sh [--interactive] [--overwrite] <raw_paper_dir> [model]
 #
 # <raw_paper_dir> must sit directly inside a corpus initialized with
 # `prep.py init` (i.e. its parent contains .autoaudit-root). The agent runs
@@ -13,12 +13,17 @@
 # By default the session is headless: it runs with --permission-mode auto,
 # exits when done, writes its transcript to <corpus>/logs/prep/, and exits
 # with the agent's status. --interactive opens a normal session instead.
+#
+# --overwrite first removes the earlier prep of this paper: the draft or
+# finalized prepared/<paper>/, the scan outputs prep.yaml and statements.md in
+# the raw folder, and its transcripts in logs/prep/. Supplied raw files and
+# audit runs under runs/<paper>/ are kept.
 set -euo pipefail
 
 DEFAULT_MODEL="claude-opus-5-5"
 
 usage() {
-    echo "usage: $(basename "$0") [--interactive] <raw_paper_dir> [model]   (default model: $DEFAULT_MODEL)" >&2
+    echo "usage: $(basename "$0") [--interactive] [--overwrite] <raw_paper_dir> [model]   (default model: $DEFAULT_MODEL)" >&2
     exit 2
 }
 
@@ -105,9 +110,36 @@ run_headless() {
     return "$status"
 }
 
+remove_tree() {
+    [ -e "$1" ] || return 0
+    chmod -R u+w "$1"
+    rm -rf "$1"
+}
+
+remove_earlier_prep() {
+    local root="$1" paper="$2" log
+    remove_tree "$root/prepared/$paper"
+    rm -f "$root/$paper/prep.yaml" "$root/$paper/statements.md"
+    for log in "$root/logs/prep/$paper"-[0-9]*T[0-9]*Z.jsonl; do
+        [ -f "$log" ] && rm -f "$log"
+    done
+    if [ -d "$root/runs/$paper" ]; then
+        echo "$(basename "$0"): note: audit runs in $root/runs/$paper were made from the removed snapshot; they are kept" >&2
+    fi
+    return 0
+}
+
 main() {
-    local interactive=0
-    [ "${1:-}" = "--interactive" ] && { interactive=1; shift; }
+    local interactive=0 overwrite=0
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --interactive) interactive=1 ;;
+            --overwrite)   overwrite=1 ;;
+            --*)           usage ;;
+            *)             break ;;
+        esac
+        shift
+    done
     [ $# -ge 1 ] && [ $# -le 2 ] || usage
     [ -d "$1" ] || die "not a directory: $1" 2
     local paper_dir root model paper prompt
@@ -118,6 +150,7 @@ main() {
     check_layout "$paper_dir" "$root"
     paper="$(basename "$paper_dir")"
     prompt="$(build_prompt "$paper" "$root" "$model")"
+    [ "$overwrite" = 1 ] && remove_earlier_prep "$root" "$paper"
     cd "$root"
     if [ "$interactive" = 1 ]; then
         launch_interactive "$model" "$prompt"
