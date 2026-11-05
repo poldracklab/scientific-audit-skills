@@ -230,19 +230,22 @@ again after more audits finish to get a consensus over the larger set.
 The report leads with a **Bottom line** that says which major conclusions change, or that
 none do. A finding counts as changing a conclusion **only when it moves that claim's
 consensus verdict to weak or unsupported**. A downgrade such as strong → moderate is
-reported but does not count. Then come these sections:
+reported but does not count.
 
-- **Claims**: one consensus verdict per claim, with each run's own verdict beside it and the
-  reason wherever they differ.
-- **Confirmed issues**, ranked by severity (major / moderate / minor), each naming the runs
-  and finding IDs that raised it.
-- **Disputed and refuted findings**, with the evidence that settled each one and why the
-  audits differed.
-- **Agreed minor issues**, and a short list of anything noticed during adjudication but
+The main body is about the paper, not the audits, and is capped at 800 words:
+
+- **Claims**: one consensus verdict per claim, and the issues that moved it.
+- **Issues that matter**: major and moderate issues only, at most 100 words each.
+- **Minor issues**: one line each for issues that change a reported number but no verdict.
+  A count of cosmetic issues follows.
+- A short list of anything noticed during adjudication that could change a verdict but was
   not checked.
-- An appendix with a **finding cross-walk** (every finding ID from every run mapped to a
-  consensus item), the adjudication analyses, and provenance including the run-to-model
-  mapping.
+
+The appendix holds the audit bookkeeping: each run's own claim verdicts, a **finding
+cross-walk** (every finding ID from every run mapped to a consensus item),
+**Adjudication notes** (how each disputed or refuted finding was settled and why the audits differed),
+**Cosmetic issues** (typos, labels and rounding that change no number or conclusion), the
+adjudication analyses, and provenance, including the run-to-model mapping.
 
 Each finding gets one status:
 

@@ -37,50 +37,65 @@ inputs <- fromJSON("inputs.json")
 
 # Bottom line
 
-<!-- ≤ 150 words. Sentence 1: which major conclusions change (verdict falls to weak or
-     unsupported), or that none do. Then the confirmed major issues with severity, and what
-     remains unresolved. -->
+<!-- ≤ 100 words. Sentence 1: which major conclusions change (verdict falls to weak or
+     unsupported), or that none do. Then the issues that cause it, and what remains
+     unresolved. The whole main body (Bottom line through Noticed during adjudication)
+     is ≤ 800 words, tables included. No run IDs or finding IDs before the appendix. -->
 
 # Claims
 
-| Consensus claim | Consensus verdict | RUN_ID_1 | RUN_ID_2 | Why verdicts differ |
-|---|---|---|---|---|
-| K1 | strong / moderate / weak / hypothesis-generating / unsupported | C1: verdict | C1: verdict | |
+| Claim | Consensus verdict | Moved by |
+|---|---|---|
+| K1. ≤ 15 words | strong / moderate / weak / hypothesis-generating / unsupported | X1 or — |
 
-# Confirmed issues
+# Issues that matter
 
-<!-- Ranked by severity, then consequence. One record each:
+<!-- Major and moderate only, ranked by severity, then consequence. ≤ 100 words each.
+     "None." if empty.
 
-### X1 — One-sentence statement of the issue {#x1}
+### X1 — One-sentence statement of the problem {#x1}
 
-**Converged | Adjudicated: confirmed | Adjudicated: partly confirmed · major/moderate/minor ·
-affects K1 · changes the conclusion: yes/no.**
+**major/moderate · affects K1 · changes the conclusion: yes/no.**
 
-*Raised by.* RUN_ID_1 F2; RUN_ID_2 F1.
-
-*Evidence.* Two or three sentences; deciding numbers inline from results/.
-
-*Consequence.* What changes in the claim's verdict.
+Two or three sentences of evidence, deciding numbers only, inline from results/. One
+sentence on what changes in the claim.
 -->
 
-# Disputed and refuted findings
+# Minor issues
 
-<!-- One record each: the outcome (refuted / partly confirmed), the evidence that settled
-     it, and why the audits differed. -->
+<!-- Changes a reported number, test or label of a result, but no verdict. ≤ 25 words a row. -->
 
-# Agreed minor issues
-
-| Issue | Raised by | Location | Fix |
+| ID | Issue | Location | Effect on the reported result |
 |---|---|---|---|
+
+<!-- Then one sentence: "N cosmetic issues (typos, labels, rounding) are listed in the
+     appendix." -->
 
 # Noticed during adjudication
 
-<!-- Unadjudicated, one line each, or "None." -->
+<!-- Only items that could change a verdict if confirmed; unadjudicated, one line each.
+     Otherwise "None." -->
+
+# Claim verdicts by audit {.appendix}
+
+| Claim | Consensus | RUN_ID_1 | RUN_ID_2 | Why they differ (one clause) |
+|---|---|---|---|---|
+| K1 | strong | C1: strong | C1: moderate | |
 
 # Finding cross-walk {.appendix}
 
 | Run | Finding | Consensus item | Status | Outcome |
 |---|---|---|---|---|
+
+# Adjudication notes {.appendix}
+
+<!-- One paragraph (≤ 80 words) per disputed or refuted finding, and per converged finding
+     whose magnitude or severity was revised: what settled it and why the audits differed. -->
+
+# Cosmetic issues {.appendix}
+
+| ID | Issue | Location |
+|---|---|---|
 
 # Adjudication analyses {.appendix}
 

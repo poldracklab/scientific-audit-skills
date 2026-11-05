@@ -90,7 +90,8 @@ Never classify by majority, and never by which report sounds more certain.
 
 Scope: adjudicate what the audits raised and the verdicts they disagree on. Do not hunt for
 new issues. A new problem you notice while adjudicating goes in *Noticed during
-adjudication*, unadjudicated, one line each. Additional evidence follows the
+adjudication*, unadjudicated, one line each, but only when it could change a verdict.
+Leave out anything smaller. Additional evidence follows the
 reproducibility-audit rules: save it under `additional-evidence/` with a provenance row,
 with no large downloads, no paid jobs, and no contacting authors.
 
@@ -105,30 +106,71 @@ count as changing the conclusion. Apply this to every claim in the consensus cla
 
 ## Stage 6 — Report
 
-Fill the template in its order:
+The reader wants to know what the paper's evidence supports, not how the audits went.
+The **main body** (everything before the appendix) is about the paper. It is at most 800
+words, tables included. The appendix holds the audit bookkeeping and has no length limit.
+The thoroughness of the adjudication shows in the appendix. The main body shows only its
+conclusions.
 
-1. **Bottom line** (at most 150 words). The first sentence says which major conclusions
-   change, or that none do. Then: the confirmed major issues and their severity, and what
-   remains unresolved.
-2. **Claims**: one row per consensus claim, with the consensus verdict, one column per run
-   ID (that run's claim ID and verdict, or "not assessed"), and a one-line reason wherever
-   verdicts differ.
-3. **Confirmed issues**: ranked by severity, then by consequence. Each record gives its
-   status (converged / adjudicated: confirmed or partly confirmed), the runs and finding
-   IDs that raised it, severity, affected claim, whether it changes the conclusion, and
-   the evidence.
-4. **Disputed and refuted findings**: the evidence that settled each one, and why the
-   audits differed.
-5. **Agreed minor issues**: one compact table.
-6. **Noticed during adjudication** ("None." if empty).
-7. **Appendix**: finding cross-walk, adjudication analyses (code and output), provenance,
-   session info.
+Triage every confirmed or partly confirmed issue into one of three tiers:
 
-Write in the reproducibility-audit report style: every section opens with its conclusion,
-and numbers appear inline only when they decide a verdict.
+- **Matters**: major or moderate. Only major and moderate issues get a record.
+- **Minor**: changes a reported number, test or label of a result, but no verdict. One
+  line in the main body.
+- **Cosmetic**: a typo, mislabel, caption slip, rounding drift or missing detail that does
+  not change any reported number or conclusion. Appendix only. The main body gives at most
+  a count.
+
+When in doubt between minor and cosmetic, ask whether a careful reader would draw a
+different conclusion from any reported result if it were fixed. If not, it is cosmetic.
+
+Fill the template in its order.
+
+Main body:
+
+1. **Bottom line** (at most 100 words). The first sentence says which major conclusions
+   change, or that none do. Then name the issues that cause it, and anything that remains
+   unresolved. No numbers unless one decides the verdict.
+2. **Claims**: one row per consensus claim. The claim in at most 15 words, the consensus
+   verdict, and the issue IDs that moved it ("—" if none). No per-run columns.
+3. **Issues that matter**: ranked by severity, then by consequence. Each record is at most
+   100 words: a one-sentence heading stating the problem; a status line (severity ·
+   affected claim · changes the conclusion: yes/no); two or three sentences of evidence
+   with only the deciding numbers; one sentence on the consequence. Write "None." if
+   empty.
+4. **Minor issues**: a table, one line per issue (issue, location, effect on the reported
+   result), at most 25 words per row. Then one sentence giving the number of cosmetic
+   issues, pointing to the appendix.
+5. **Noticed during adjudication**: only items that could change a verdict if confirmed,
+   one line each. Otherwise "None."
+
+Appendix:
+
+6. **Claim verdicts by audit**: per-run claim IDs and verdicts, with a reason of at most one
+   clause wherever they differ from the consensus.
+7. **Finding cross-walk**: every finding ID of every run, its consensus item, status and
+   outcome.
+8. **Adjudication notes**: for each disputed or refuted finding, and each converged finding
+   whose magnitude or severity you revised, what settled it and why the audits differed.
+   At most 80 words each.
+9. **Cosmetic issues**: one line each, with location.
+10. **Adjudication analyses** (code and output), provenance, session info.
+
+Style:
+
+- Run IDs and finding IDs stay in the appendix. The main body refers to issues by
+  consensus ID (X1, X2…) and never says which audit raised, missed or misjudged something.
+- Each fact appears once. Do not restate the bottom line in a section intro, repeat a
+  number from an issue record in the claims table, or summarize a section at its start.
+- Every section opens with its conclusion. Numbers appear inline only when they decide a
+  verdict. Cut hedges, inventories of checks that came back clean, and narration of what
+  you did. That detail belongs in the appendix.
 
 ## Stage 7 — Render and verify
 
 Render `consensus.qmd` to `consensus.html` with embedded resources. Check every number in
-the prose against the rendered output. Confirm the cross-walk lists every finding ID of
+the prose against the rendered output. Then count the main body's words in the rendered
+output, from *Bottom line* up to the first appendix section and excluding the callouts. If
+it is over 800, cut it: move detail to the appendix, demote issues, merge records. Do not
+just compress the sentences. Confirm the cross-walk lists every finding ID of
 every run in `inputs.json`. Give the operator the file path. Do not publish it.
