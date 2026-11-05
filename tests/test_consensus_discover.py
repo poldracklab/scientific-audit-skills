@@ -77,3 +77,23 @@ def test_mismatched_manifests_raise(paper_runs, make_run):
 
 def test_matching_manifests_pass(paper_runs, make_run):
     check_same_manifest([make_run(paper_runs, "a1"), make_run(paper_runs, "b2")])
+
+
+CLAUDE_COMMAND_DONE = '{"type":"command_lifecycle","state":"completed"}'
+
+
+def test_completed_command_bookkeeping_preserves_finished_run(paper_runs, make_run):
+    run = make_run(paper_runs, "a1", log_lines=[CLAUDE_DONE, CLAUDE_COMMAND_DONE])
+    completed, skipped = completed_runs(paper_runs)
+    assert completed == [run]
+    assert skipped == []
+
+
+@pytest.mark.parametrize("lines", [
+    [CLAUDE_COMMAND_DONE],
+    ['{"type":"assistant"}', CLAUDE_COMMAND_DONE],
+    [CLAUDE_DONE, '{"type":"assistant"}', CLAUDE_COMMAND_DONE],
+    [CLAUDE_DONE, '{"type":"command_lifecycle","state":"started"}'],
+])
+def test_command_bookkeeping_does_not_hide_unfinished_work(tmp_path, lines):
+    assert not log_finished(_log(tmp_path, *lines))
