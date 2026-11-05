@@ -177,9 +177,11 @@ def test_review_exit_codes_and_incomplete_run_documented():
 CONSENSUS = SKILLS / "audit-consensus"
 CONSENSUS_SECTIONS = [
     "## AI-generated — not for publication", "## Preliminary & unvetted analysis",
-    "# Bottom line", "# Claims", "# Confirmed issues", "# Disputed and refuted findings",
-    "# Agreed minor issues", "# Noticed during adjudication", "# Finding cross-walk {.appendix}",
-    "# Adjudication analyses {.appendix}", "# Provenance {.appendix}", "# Session info {.appendix}",
+    "# Bottom line", "# Claims", "# Issues that matter", "# Minor issues",
+    "# Noticed during adjudication", "# Claim verdicts by audit {.appendix}",
+    "# Finding cross-walk {.appendix}", "# Adjudication notes {.appendix}",
+    "# Cosmetic issues {.appendix}", "# Adjudication analyses {.appendix}",
+    "# Provenance {.appendix}", "# Session info {.appendix}",
 ]
 
 
@@ -229,3 +231,31 @@ def test_audit_skills_tell_auditors_to_read_corrigenda():
 def test_audit_prep_documents_corrigendum_role():
     assert "corrigendum" in (SKILLS / "audit-prep/SKILL.md").read_text()
     assert "`corrigendum`" in (SKILLS / "audit-prep/references/prep-yaml.md").read_text()
+
+
+def _consensus_main_body(text: str) -> str:
+    return text.split("# Bottom line", 1)[1].split("{.appendix}", 1)[0]
+
+
+def test_consensus_main_body_keeps_audit_bookkeeping_out():
+    body = _consensus_main_body((CONSENSUS / "templates/consensus_template.qmd").read_text())
+    assert "RUN_ID" not in body and "Raised by" not in body and "Why verdicts differ" not in body
+    assert "major" in body and "moderate" in body
+
+
+def test_consensus_skill_sets_length_budget_and_triage():
+    text = _flat((CONSENSUS / "SKILL.md").read_text())
+    assert "at most 100 words" in text
+    assert "at most 800 words" in text and "main body" in text
+    assert "Only major and moderate issues get a record" in text
+    assert "does not change any reported number" in text
+    assert "Each fact appears once" in text
+    assert "Run IDs and finding IDs stay in the appendix" in text
+    assert "count the main body's words" in text
+
+
+def test_readme_describes_concise_consensus_report():
+    text = (SKILLS / "README.md").read_text()
+    for section in ["**Issues that matter**", "**Minor issues**", "**Adjudication notes**",
+                    "**Cosmetic issues**"]:
+        assert section in text, section
