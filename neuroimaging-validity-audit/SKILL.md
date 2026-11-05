@@ -110,6 +110,11 @@ Static code review establishes what inspected code specifies, not that it was
 the code executed for publication. Verify apparent omissions against supplements
 before treating them as unresolved.
 
+Require multiple-comparison correction only for a clear family of parallel,
+related tests. Reporting results together does not establish a family, and a shared
+headline conclusion alone is insufficient. If the parallel relationship is unclear,
+do not treat missing correction as an error or lower a claim's verdict on that basis.
+
 **Tier 2 — targeted derivative checks.** Recompute selected quantities using
 participant estimates, predictions, design matrices, or saved contrast images.
 Use deterministic calculations for arithmetic, identify the correct sampling

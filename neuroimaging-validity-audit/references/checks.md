@@ -90,26 +90,35 @@ claim, without selecting a preferred result by significance.
 
 ### Justify the multiple-comparison family
 
-Before alleging missing multiple-comparison correction, establish family membership
-from the scientific question, the authors' inferential claims, and the analysis plan,
-preregistration, methods, and code where available. List the included tests and explain
-why they offer parallel opportunities to support the same inference. Sharing the same
-figure, table, dataset, or paper does not establish a family; distinct scientific
-questions can legitimately be tested separately.
+Require multiple-comparison correction only for a clear family of parallel, related
+tests. Establish family membership from the scientific question, analysis plan,
+preregistration, methods, and code where available. List the included tests, describe
+what is held constant and what varies across the tests, and explain how they test
+related hypotheses in parallel. A broad narrative or headline conclusion is not
+sufficient to combine otherwise distinct scientific questions into one family.
+Sharing the same figure, table, dataset, participants, or paper does not establish
+a family. Reporting results together is not evidence that the tests are parallel.
 
-Focus correction checks primarily on large collections of essentially identical tests
-performed in parallel, such as correlations across a set of variables or tests across
-many brain voxels. This is a priority, not a minimum family size: smaller families also
-need justification from their shared inferential purpose. Check any existing correction,
-hierarchical testing, or omnibus procedure before alleging an omission.
+Examples of clear families include essentially identical tests of the same contrast
+across many brain voxels, the same brain–behavior association across a set of ROIs,
+or parallel correlations screening related variables for the same association.
+Family size alone is not decisive: a small set can qualify when its tests are clearly
+parallel and related. Conversely, separate prespecified hypotheses about task
+performance, acceptability, and a mechanistic association do not become a family
+merely because they appear in one table or contribute to an intervention narrative.
+Prespecification alone does not exempt a genuinely parallel family from correction.
 
-Do not apply Holm automatically. Justify both the family and the error criterion
-(e.g. family-wise error versus false discovery rate), and assess whether the authors'
-method addresses their claim. Report all tests in the justified family, including null
-results and effects in the opposite direction.
+Only after establishing this family, check any existing correction, hierarchical
+testing, or omnibus procedure before alleging an omission. Do not apply Holm
+automatically. Justify the error criterion (e.g. family-wise error versus false
+discovery rate) and assess whether the authors' method addresses their claim.
+Report all tests in the justified family, including null results and effects in
+the opposite direction.
 
-If family membership is uncertain, describe that uncertainty. An alternative grouping
-may be a sensitivity analysis, but do not downgrade a claim solely because it fails
-correction under a debatable grouping. A justified correction that changes significance
-must be interpreted alongside effect size, uncertainty, and the actual claim; it does
-not establish that the effect is absent.
+If family membership is unclear, do not classify missing correction as an error
+and do not downgrade a claim for uncorrected significance. State what evidence
+would be needed to establish a parallel family. An alternative grouping may be
+an explicitly optional sensitivity analysis; failure under that grouping is not
+a demonstrated defect and must not drive the verdict. For a clear family, interpret
+a justified correction that changes significance alongside effect size, uncertainty,
+and the actual claim; it does not establish that the effect is absent.

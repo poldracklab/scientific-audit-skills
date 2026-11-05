@@ -172,6 +172,11 @@ Choose checks that address a concrete threat in this design. Consult
 multiplicity, subgroup, fragility and timing checks. Report all attempted
 specifications, including results that strengthen the authors' conclusions.
 
+Require multiple-comparison correction only for a clear family of parallel,
+related tests. Reporting results together does not establish a family, and a shared
+headline conclusion alone is insufficient. If the parallel relationship is unclear,
+do not treat missing correction as an error or lower a claim's verdict on that basis.
+
 ## Stage 8: Synthesize outcomes
 
 For trials with many outcomes, use the outcome × finding matrix in
