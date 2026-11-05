@@ -307,3 +307,27 @@ def test_multiplicity_requires_a_justified_family():
             assert requirement in text, (relative, requirement)
     text = _flat((CONSENSUS / "SKILL.md").read_text())
     assert "even for converged findings" in text
+
+
+def test_individual_audits_limit_correction_to_clear_parallel_related_tests():
+    for skill in AUDIT_SKILLS:
+        text = _flat((SKILLS / skill / "SKILL.md").read_text())
+        assert "Require multiple-comparison correction only for a clear family of parallel, related tests" in text, skill
+        assert "Reporting results together does not establish a family" in text, skill
+
+
+def test_individual_audit_family_guidance_requires_evidence_and_limits_verdicts():
+    for relative in [
+        "reproducibility-audit/references/analysis-recipes.md",
+        "neuroimaging-validity-audit/references/checks.md",
+    ]:
+        text = _flat((SKILLS / relative).read_text())
+        for requirement in [
+            "only for a clear family of parallel, related tests",
+            "broad narrative or headline conclusion is not sufficient",
+            "what is held constant and what varies across the tests",
+            "separate prespecified hypotheses about task performance, acceptability, and a mechanistic association",
+            "do not classify missing correction as an error",
+            "do not downgrade a claim",
+        ]:
+            assert requirement in text, (relative, requirement)
