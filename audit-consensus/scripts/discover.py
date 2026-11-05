@@ -29,6 +29,9 @@ def _last_event(log: Path) -> dict | None:
         except ValueError:
             continue
         if isinstance(event, dict):
+            # Claude can emit command bookkeeping after its final result.
+            if event.get("type") == "command_lifecycle" and event.get("state") == "completed":
+                continue
             return event
     return None
 
