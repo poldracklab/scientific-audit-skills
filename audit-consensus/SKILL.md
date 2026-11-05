@@ -80,7 +80,8 @@ Never classify by majority, and never by which report sounds more certain.
   paper). Give an outcome: **confirmed**, **partly confirmed**, or **refuted**. If an
   existing output in a source run already settles the question, cite that exact output
   instead of recomputing it, and say why it suffices.
-- **Converged** findings: accept them, but spot-check any whose audits disagree on
+- **Converged** findings: apply the multiplicity rule below even for converged findings.
+  For other converged findings, accept them, but spot-check any whose audits disagree on
   magnitude or severity, and report which magnitude holds.
 - **Claim verdicts that differ** between audits: decide the consensus verdict from the
   adjudicated findings and state why each audit's verdict was or was not right.
@@ -95,6 +96,32 @@ Leave out anything smaller. Additional evidence follows the
 reproducibility-audit rules: save it under `additional-evidence/` with a provenance row,
 with no large downloads, no paid jobs, and no contacting authors.
 
+### Justify the multiple-comparison family
+
+Before alleging missing multiple-comparison correction, establish family membership
+from the scientific question, the authors' inferential claims, and the analysis plan,
+preregistration, methods, and code where available. List the included tests and explain
+why they offer parallel opportunities to support the same inference. Sharing the same
+figure, table, dataset, or paper does not establish a family; distinct scientific
+questions can legitimately be tested separately.
+
+Focus correction checks primarily on large collections of essentially identical tests
+performed in parallel, such as correlations across a set of variables or tests across
+many brain voxels. This is a priority, not a minimum family size: smaller families also
+need justification from their shared inferential purpose. Check any existing correction,
+hierarchical testing, or omnibus procedure before alleging an omission.
+
+Do not apply Holm automatically. Justify both the family and the error criterion
+(e.g. family-wise error versus false discovery rate), and assess whether the authors'
+method addresses their claim. Report all tests in the justified family, including null
+results and effects in the opposite direction.
+
+If family membership is uncertain, describe that uncertainty. An alternative grouping
+may be a sensitivity analysis, but do not downgrade a claim solely because it fails
+correction under a debatable grouping. A justified correction that changes significance
+must be interpreted alongside effect size, uncertainty, and the actual claim; it does
+not establish that the effect is absent.
+
 ## Stage 5 — Severity and conclusion change
 
 For every confirmed or partly confirmed finding, state its **severity** on the audits'
@@ -102,75 +129,69 @@ scale (major / moderate / minor: the effect on the named claim). Then state **wh
 changes a major conclusion**. It does so **only when it moves that claim's consensus
 verdict to weak or unsupported**. "Hypothesis-generating" for a claim the paper presents as
 established counts. A downgrade such as strong → moderate is reported, but it does not
-count as changing the conclusion. Apply this to every claim in the consensus claims table.
+count as changing the conclusion. Apply this to every claim in the report, explaining any weakening even when it does not
+meet this threshold.
 
 ## Stage 6 — Report
 
-The reader wants to know what the paper's evidence supports, not how the audits went.
-The **main body** (everything before the appendix) is about the paper. It is at most 800
-words, tables included. The appendix holds the audit bookkeeping and has no length limit.
-The thoroughness of the adjudication shows in the appendix. The main body shows only its
-conclusions.
+Write for a reader who has not read the audits. Use plain language and short, connected
+paragraphs. Be concise, but give enough context to understand each claim, its evidence,
+and what the audit changes. There is no fixed word cap; length should follow the number
+and complexity of the main claims. Start from the template and use this order:
 
-Triage every confirmed or partly confirmed issue into one of three tiers:
+1. **Paper summary**: briefly explain the research question, study design, sample or
+   data, main analyses, and the paper's central conclusions.
+2. **Paper-wide problems**: if confirmed or partly confirmed major problems affect the
+   paper as a whole, briefly explain each problem, the evidence establishing it, and
+   its impact on the paper's conclusions. Distinguish demonstrated impact from uncertainty
+   that prevents verification. If there are no such problems, omit this section.
+   A serious problem confined to one claim belongs with that claim.
+3. **Main claims**: give each main claim a descriptive subsection heading and these
+   four elements, in order:
+   - **Claim**: explain what the authors assert, including the population or scope.
+   - **Evidence**: describe the evidence the paper offers: relevant design, measurements,
+     comparisons, and results. Include deciding estimates and uncertainty when available,
+     with a figure, table, or analysis reference. Do this for claims that survive too.
+   - **Holds after audit**: explicitly say whether it holds, holds with qualifications,
+     is weakened, is unsupported, or cannot be determined with the available evidence.
+     Give the consensus strength verdict and explain its meaning for this claim.
+     An untested claim is not a verified claim.
+   - **If weakened**: explain the audit evidence that weakens it and the scientific
+     impact: what narrower conclusion remains defensible, what no longer follows, and
+     what is still unresolved. Distinguish reanalysis results from plausible concerns.
+     If it is unchanged, say so briefly; do not invent a weakness.
 
-- **Matters**: major or moderate. Only major and moderate issues get a record.
-- **Minor**: changes a reported number, test or label of a result, but no verdict. One
-  line in the main body.
-- **Cosmetic**: a typo, mislabel, caption slip, rounding drift or missing detail that does
-  not change any reported number or conclusion. Appendix only. The main body gives at most
-  a count.
-
-When in doubt between minor and cosmetic, ask whether a careful reader would draw a
-different conclusion from any reported result if it were fixed. If not, it is cosmetic.
-
-Fill the template in its order.
-
-Main body:
-
-1. **Bottom line** (at most 100 words). The first sentence says which major conclusions
-   change, or that none do. Then name the issues that cause it, and anything that remains
-   unresolved. No numbers unless one decides the verdict.
-2. **Claims**: one row per consensus claim. The claim in at most 15 words, the consensus
-   verdict, and the issue IDs that moved it ("—" if none). No per-run columns.
-3. **Issues that matter**: ranked by severity, then by consequence. Each record is at most
-   100 words: a one-sentence heading stating the problem; a status line (severity ·
-   affected claim · changes the conclusion: yes/no); two or three sentences of evidence
-   with only the deciding numbers; one sentence on the consequence. Write "None." if
-   empty.
-4. **Minor issues**: a table, one line per issue (issue, location, effect on the reported
-   result), at most 25 words per row. Then one sentence giving the number of cosmetic
-   issues, pointing to the appendix.
-5. **Noticed during adjudication**: only items that could change a verdict if confirmed,
-   one line each. Otherwise "None."
+Describe a paper-wide problem once in full, then explain its specific impact on each
+affected claim. Readers must not need to decode an issue ID or consult the appendix to
+understand a verdict. Brief repetition that makes a claim understandable is appropriate.
 
 Appendix:
 
-6. **Claim verdicts by audit**: per-run claim IDs and verdicts, with a reason of at most one
-   clause wherever they differ from the consensus.
-7. **Finding cross-walk**: every finding ID of every run, its consensus item, status and
-   outcome.
-8. **Adjudication notes**: for each disputed or refuted finding, and each converged finding
-   whose magnitude or severity you revised, what settled it and why the audits differed.
-   At most 80 words each.
-9. **Cosmetic issues**: one line each, with location.
-10. **Adjudication analyses** (code and output), provenance, session info.
+- **Minor issues**: changes to a reported number, test, or result label that do not
+  change a claim verdict; give the location and effect.
+- **Noticed during adjudication**: unadjudicated concerns that could change a verdict,
+  clearly labelled as unconfirmed; otherwise "None."
+- **Claim verdicts by audit**: per-run claim IDs and verdicts, with reasons for differences
+  from the consensus.
+- **Finding cross-walk**: every finding ID of every run, consensus item, status, outcome,
+  severity, affected claims, and whether it changes a major conclusion.
+- **Adjudication notes**: evidence settling disputed or refuted findings, revised
+  magnitudes or severities, and why audits differed. Include the family rationale for
+  multiplicity findings, even when converged.
+- **Cosmetic issues**: typos, labels, rounding or missing details that change no result
+  or conclusion, with locations.
+- **Adjudication analyses**, provenance, and session info.
 
-Style:
-
-- Run IDs and finding IDs stay in the appendix. The main body refers to issues by
-  consensus ID (X1, X2…) and never says which audit raised, missed or misjudged something.
-- Each fact appears once. Do not restate the bottom line in a section intro, repeat a
-  number from an issue record in the claims table, or summarize a section at its start.
-- Every section opens with its conclusion. Numbers appear inline only when they decide a
-  verdict. Cut hedges, inventories of checks that came back clean, and narration of what
-  you did. That detail belongs in the appendix.
+Run IDs and finding IDs stay in the appendix. Consensus IDs may be used as optional
+links to detailed evidence, but never as substitutes for explanations in the main body.
 
 ## Stage 7 — Render and verify
 
 Render `consensus.qmd` to `consensus.html` with embedded resources. Check every number in
-the prose against the rendered output. Then count the main body's words in the rendered
-output, from *Bottom line* up to the first appendix section and excluding the callouts. If
-it is over 800, cut it: move detail to the appendix, demote issues, merge records. Do not
-just compress the sentences. Confirm the cross-walk lists every finding ID of
-every run in `inputs.json`. Give the operator the file path. Do not publish it.
+the prose against the rendered output. Read the main body as a standalone explanation:
+does it summarize the paper, explain any paper-wide problems and their impact, and give
+each main claim its evidence, audit verdict, and the evidence and impact of any weakening?
+Remove unexplained shorthand and unnecessary detail without losing those elements.
+Confirm the cross-walk lists every finding ID of every run in `inputs.json`, and that
+multiplicity criticisms justify the family and account for the authors' correction.
+Give the operator the file path. Do not publish it.

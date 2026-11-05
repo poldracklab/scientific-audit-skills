@@ -30,7 +30,7 @@ Present specification errors as "before / after" code plus a decomposition table
   - give the design-effect table SE × √(1 + (m − 1)ρ) with df = units − unit-level parameters;
   - compute cell-level ICCs (pre-treatment measures are especially telling);
   - run **leave-one-cell/cluster-out** refits, and report all rows in the appendix, not just the damning one; the body's robustness table gets one row summarising the result.
-- **Multiplicity** within prereg families (Holm/BH). List *all* nominal hits, including those in the unfavourable direction and those that survive.
+- **Multiplicity**: use the justified-family guidance below before applying correction.
 - **Subgroup or branch splits** where the design differs. Treat the three-way interaction as post hoc, and list the confounded differences between branches.
 - **Fragility:** leave-one-participant-out p-value range; ANCOVA on the endpoint as a cross-check.
 - **Timing:** is the effect at one follow-up only? Does the mediator's time course fit the proposed mechanism? Does the prereg designate a key timepoint (usually not)?
@@ -47,3 +47,29 @@ For trials with many outcomes, build a matrix:
 
 Use the matrix to answer the user's likely question: *is this a real effect that was oversold, or something weaker?* The matrix goes in the appendix; the answer goes in the bottom line and the claims table.
 
+
+### Justify the multiple-comparison family
+
+Before alleging missing multiple-comparison correction, establish family membership
+from the scientific question, the authors' inferential claims, and the analysis plan,
+preregistration, methods, and code where available. List the included tests and explain
+why they offer parallel opportunities to support the same inference. Sharing the same
+figure, table, dataset, or paper does not establish a family; distinct scientific
+questions can legitimately be tested separately.
+
+Focus correction checks primarily on large collections of essentially identical tests
+performed in parallel, such as correlations across a set of variables or tests across
+many brain voxels. This is a priority, not a minimum family size: smaller families also
+need justification from their shared inferential purpose. Check any existing correction,
+hierarchical testing, or omnibus procedure before alleging an omission.
+
+Do not apply Holm automatically. Justify both the family and the error criterion
+(e.g. family-wise error versus false discovery rate), and assess whether the authors'
+method addresses their claim. Report all tests in the justified family, including null
+results and effects in the opposite direction.
+
+If family membership is uncertain, describe that uncertainty. An alternative grouping
+may be a sensitivity analysis, but do not downgrade a claim solely because it fails
+correction under a debatable grouping. A justified correction that changes significance
+must be interpreted alongside effect size, uncertainty, and the actual claim; it does
+not establish that the effect is absent.

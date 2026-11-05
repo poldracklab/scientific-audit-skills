@@ -14,7 +14,7 @@ paper. Evidence of a risk factor alone does not establish its effect on results.
   Identify exploratory versus confirmatory claims and documented deviations.
 - Distinguish a significant/nonsignificant pair from a tested interaction, and
   non-rejection from equivalence. Avoid observed post-hoc power as evidence.
-- Reconstruct multiplicity across regions, contrasts, outcomes, and follow-ups;
+- Assess multiplicity using the justified-family guidance below;
   an unknown analysis history is not proof of selective reporting.
 
 ## Task activation and cognitive interpretation
@@ -87,3 +87,29 @@ null statistic actually varies. For simulations, include known-positive and
 known-negative conditions and record assumptions. For sensitivity analyses,
 report all attempted defensible alternatives, including ones strengthening the
 claim, without selecting a preferred result by significance.
+
+### Justify the multiple-comparison family
+
+Before alleging missing multiple-comparison correction, establish family membership
+from the scientific question, the authors' inferential claims, and the analysis plan,
+preregistration, methods, and code where available. List the included tests and explain
+why they offer parallel opportunities to support the same inference. Sharing the same
+figure, table, dataset, or paper does not establish a family; distinct scientific
+questions can legitimately be tested separately.
+
+Focus correction checks primarily on large collections of essentially identical tests
+performed in parallel, such as correlations across a set of variables or tests across
+many brain voxels. This is a priority, not a minimum family size: smaller families also
+need justification from their shared inferential purpose. Check any existing correction,
+hierarchical testing, or omnibus procedure before alleging an omission.
+
+Do not apply Holm automatically. Justify both the family and the error criterion
+(e.g. family-wise error versus false discovery rate), and assess whether the authors'
+method addresses their claim. Report all tests in the justified family, including null
+results and effects in the opposite direction.
+
+If family membership is uncertain, describe that uncertainty. An alternative grouping
+may be a sensitivity analysis, but do not downgrade a claim solely because it fails
+correction under a debatable grouping. A justified correction that changes significance
+must be interpreted alongside effect size, uncertainty, and the actual claim; it does
+not establish that the effect is absent.

@@ -227,31 +227,32 @@ again after more audits finish to get a consensus over the larger set.
 
 #### Reading the report
 
-The report leads with a **Bottom line** that says which major conclusions change, or that
-none do. A finding counts as changing a conclusion **only when it moves that claim's
-consensus verdict to weak or unsupported**. A downgrade such as strong → moderate is
-reported but does not count.
+The report explains the paper and its evidence in this order:
 
-The main body is about the paper, not the audits, and is capped at 800 words:
+- **Paper summary**: the question, design, data, analyses, and central conclusions.
+- **Paper-wide problems**: major problems affecting the whole paper, with the evidence
+  and impact explained. Omitted when there are none.
+- **Main claims**: for each claim, explain what it says, the paper's supporting evidence,
+  whether it holds after the audit, and the evidence and scientific impact of any weakening.
+  Claims that survive receive explanations too.
 
-- **Claims**: one consensus verdict per claim, and the issues that moved it.
-- **Issues that matter**: major and moderate issues only, at most 100 words each.
-- **Minor issues**: one line each for issues that change a reported number but no verdict.
-  A count of cosmetic issues follows.
-- A short list of anything noticed during adjudication that could change a verdict but was
-  not checked.
+The main body uses plain language and enough context to stand alone, without a fixed word
+cap or cryptic issue-ID tables. A finding counts as changing a major conclusion when it
+moves the consensus verdict to weak or unsupported; smaller downgrades are also explained.
 
-The appendix holds the audit bookkeeping: each run's own claim verdicts, a **finding
-cross-walk** (every finding ID from every run mapped to a consensus item),
-**Adjudication notes** (how each disputed or refuted finding was settled and why the audits differed),
-**Cosmetic issues** (typos, labels and rounding that change no number or conclusion), the
-adjudication analyses, and provenance, including the run-to-model mapping.
+The appendix holds minor issues, unconfirmed concerns noticed during adjudication,
+per-audit verdicts, the complete **finding cross-walk**, **Adjudication notes**,
+**Cosmetic issues**, analyses, and provenance, including the run-to-model mapping.
+
+Multiplicity criticisms require a justified family based on the scientific inference,
+even when all audits agree. Tests in one figure are not automatically a family.
+Debatable groupings are sensitivity analyses, not automatic grounds for a downgrade.
 
 Each finding gets one status:
 
 | Status | Meaning | What the consensus agent does |
 |---|---|---|
-| Converged | Two or more audits raised it; none tested it and found it clean | Accepts it; spot-checks when the audits disagree on size or severity |
+| Converged | Two or more audits raised it; none tested it and found it clean | Checks multiplicity family rationale; otherwise accepts, with spot-checks for disagreements on size or severity |
 | Disputed | Raised by at least one audit, and **any** audit tested the same point and found no problem | Re-runs the check and finds out why they differ |
 | Single-audit, untested | Raised by one audit; no other audit looked | Runs the check itself |
 

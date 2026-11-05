@@ -35,46 +35,49 @@ inputs <- fromJSON("inputs.json")
 # Heavy adjudication results are cached in results/ by scripts in R/ (see appendix).
 ```
 
-# Bottom line
+# Paper summary
 
-<!-- ≤ 100 words. Sentence 1: which major conclusions change (verdict falls to weak or
-     unsupported), or that none do. Then the issues that cause it, and what remains
-     unresolved. The whole main body (Bottom line through Noticed during adjudication)
-     is ≤ 800 words, tables included. No run IDs or finding IDs before the appendix. -->
+<!-- Briefly explain the question, design, sample/data, main analyses, and central
+     conclusions. Use plain language; assume the reader has not read the audits.
+     Be concise without a fixed word cap. No run IDs or finding IDs in the main body. -->
 
-# Claims
+# Paper-wide problems
 
-| Claim | Consensus verdict | Moved by |
-|---|---|---|
-| K1. ≤ 15 words | strong / moderate / weak / hypothesis-generating / unsupported | X1 or — |
+<!-- Include only confirmed or partly confirmed major problems affecting the paper as
+     a whole. Explain each problem, the evidence, and its impact on the conclusions.
+     Distinguish demonstrated effects from inability to verify. If none, omit this
+     section. Claim-specific major or moderate problems belong with the affected claim. -->
 
-# Issues that matter
+# Main claims
 
-<!-- Major and moderate only, ranked by severity, then consequence. ≤ 100 words each.
-     "None." if empty.
+<!-- Repeat this subsection for EVERY main claim, including claims that survive.
+     Use informative headings, not IDs alone. -->
 
-### X1 — One-sentence statement of the problem {#x1}
+## Descriptive claim heading
 
-**major/moderate · affects K1 · changes the conclusion: yes/no.**
+**Claim**: Explain what the authors assert and its scope.
 
-Two or three sentences of evidence, deciding numbers only, inline from results/. One
-sentence on what changes in the claim.
--->
+**Evidence**: Describe the paper's supporting design, measurements, comparisons, and
+results, with deciding estimates/uncertainty and figure, table, or analysis references.
 
-# Minor issues
+**Holds after audit**: State whether it holds, holds with qualifications, is weakened,
+is unsupported, or cannot be determined. Give the consensus strength verdict
+(strong / moderate / weak / hypothesis-generating / unsupported) when assessable,
+and explain what it means for this claim. Untested does not mean verified.
 
-<!-- Changes a reported number, test or label of a result, but no verdict. ≤ 25 words a row. -->
+**If weakened**: Explain the audit evidence and its impact on the scientific conclusion.
+State what remains supported and what no longer follows. Distinguish demonstrated
+problems from unresolved concerns. If unchanged, say so briefly.
+
+# Minor issues {.appendix}
 
 | ID | Issue | Location | Effect on the reported result |
 |---|---|---|---|
 
-<!-- Then one sentence: "N cosmetic issues (typos, labels, rounding) are listed in the
-     appendix." -->
+# Noticed during adjudication {.appendix}
 
-# Noticed during adjudication
-
-<!-- Only items that could change a verdict if confirmed; unadjudicated, one line each.
-     Otherwise "None." -->
+<!-- Only unadjudicated items that could change a verdict if confirmed. Explicitly label
+     these as unconfirmed; otherwise "None." -->
 
 # Claim verdicts by audit {.appendix}
 
@@ -84,13 +87,15 @@ sentence on what changes in the claim.
 
 # Finding cross-walk {.appendix}
 
-| Run | Finding | Consensus item | Status | Outcome |
-|---|---|---|---|---|
+| Run | Finding | Consensus item | Status | Outcome | Severity | Affected claims | Changes a major conclusion? |
+|---|---|---|---|---|---|---|---|
 
 # Adjudication notes {.appendix}
 
-<!-- One paragraph (≤ 80 words) per disputed or refuted finding, and per converged finding
-     whose magnitude or severity was revised: what settled it and why the audits differed. -->
+<!-- Explain what settled each disputed or refuted finding and why the audits differed,
+     including converged findings whose magnitude or severity was revised. For every
+     multiplicity finding, document the family rationale and existing correction, even
+     when converged; distinguish sensitivity analyses from established omissions. -->
 
 # Cosmetic issues {.appendix}
 
