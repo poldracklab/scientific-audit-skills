@@ -69,6 +69,25 @@ and explain what it means for this claim. Untested does not mean verified.
 State what remains supported and what no longer follows. Distinguish demonstrated
 problems from unresolved concerns. If unchanged, say so briefly.
 
+# Relative audit accuracy and usefulness {.appendix}
+
+<!-- Include every run in inputs.json, identified only by run ID. Assess accuracy
+     and usefulness separately after adjudication. Cite deciding cross-walk items,
+     claim verdicts, or outputs. Weight scientific consequence, not finding counts.
+     Account for differences in scope and access; unresolved does not mean refuted. -->
+
+| Run | Accuracy | Usefulness | Deciding evidence |
+|---|---|---|---|
+
+**Relative accuracy**: Name the leading run or tied group and explain material
+differences among the other runs. Use a tie when evidence does not clearly separate them.
+
+**Relative usefulness**: Give a separate comparison, allowing different leaders or ties.
+Explain whether a tie reflects similar performance or insufficient evidence.
+
+**Limits**: State what remains unresolved or unverified and how it limits comparison.
+This judges these audits of this paper; it is not a general model ranking.
+
 # Minor issues {.appendix}
 
 | ID | Issue | Location | Effect on the reported result |

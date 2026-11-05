@@ -7,7 +7,8 @@ description: >
   how severe they are, and whether they change the paper's major conclusions. Matches claims
   and findings across audits by meaning. Distinguishes converged, disputed and untested
   findings, and runs whatever additional analysis against the paper's data and code is
-  needed to settle disagreements. Not a fresh audit and not a rating of the audits.
+  needed to settle disagreements. Compare the included audits' accuracy and usefulness,
+  allowing ties. Not a fresh audit.
 ---
 
 # Consensus of independent audits
@@ -16,6 +17,7 @@ Goal: a **private, self-contained rendered Quarto report** (`consensus.html`) th
 for one paper: which issues raised by the audits are confirmed, how severe each is, and
 whether any changes a major conclusion. Settle every disagreement with evidence, never by
 counting audits or by trusting the more confident report.
+Then judge the relative accuracy and usefulness of the included audits from that evidence.
 
 Work through the stages in order. Start from `templates/consensus_template.qmd`.
 
@@ -132,7 +134,36 @@ established counts. A downgrade such as strong → moderate is reported, but it 
 count as changing the conclusion. Apply this to every claim in the report, explaining any weakening even when it does not
 meet this threshold.
 
-## Stage 6 — Report
+## Stage 6 — Compare the audits
+
+After adjudication, assess **every included run**, using run IDs only. Keep two judgments
+separate:
+
+- **Accuracy**: correctness of the audit's numerical results, methodological criticisms,
+  clean checks, severity assessments, and claim verdicts. Identify material errors,
+  refuted allegations, overstatements, and appropriately expressed uncertainty.
+- **Usefulness**: how much the audit helps a reader understand what holds and what changes
+  in the paper. Credit consequential confirmed findings, informative clean checks,
+  reproducible evidence, clear explanations, and actionable qualifications. Explain the
+  cost of misleading allegations or distracting detail.
+
+Base comparisons on **adjudicated evidence**, citing cross-walk items, claim verdicts,
+and exact outputs where relevant. Weight scientific consequence rather than raw finding
+counts, length, confidence of tone, or agreement with the majority. Compare scope and access
+to materials before treating an omission as a weakness; silence alone is not an error.
+Do not treat unresolved findings as refuted or an untested clean check as established.
+
+Give a relative judgment for accuracy and another for usefulness. Name the leading run
+or tied group and explain material differences among the remaining runs. Use a **tie**
+whenever the evidence does not clearly distinguish runs; distinguish demonstrated similar
+performance from insufficient evidence to separate them. Accuracy and usefulness may have
+different leaders. Do not force an overall winner or numerical score.
+
+State the limits: this comparison concerns these audits of this paper, not a general model
+ranking. Consensus adjudication is itself fallible, and accepted converged findings are
+not necessarily independently verified. Explain when these limits prevent a distinction.
+
+## Stage 7 — Report
 
 Write for a reader who has not read the audits. Use plain language and short, connected
 paragraphs. Be concise, but give enough context to understand each claim, its evidence,
@@ -167,6 +198,9 @@ understand a verdict. Brief repetition that makes a claim understandable is appr
 
 Appendix:
 
+- **Relative audit accuracy and usefulness**: one row per included run, with separate
+  accuracy and usefulness assessments and deciding evidence; then separate comparative
+  judgments, including ties and their reasons, and the limits of the comparison.
 - **Minor issues**: changes to a reported number, test, or result label that do not
   change a claim verdict; give the location and effect.
 - **Noticed during adjudication**: unadjudicated concerns that could change a verdict,
@@ -185,7 +219,7 @@ Appendix:
 Run IDs and finding IDs stay in the appendix. Consensus IDs may be used as optional
 links to detailed evidence, but never as substitutes for explanations in the main body.
 
-## Stage 7 — Render and verify
+## Stage 8 — Render and verify
 
 Render `consensus.qmd` to `consensus.html` with embedded resources. Check every number in
 the prose against the rendered output. Read the main body as a standalone explanation:
@@ -194,4 +228,6 @@ each main claim its evidence, audit verdict, and the evidence and impact of any 
 Remove unexplained shorthand and unnecessary detail without losing those elements.
 Confirm the cross-walk lists every finding ID of every run in `inputs.json`, and that
 multiplicity criticisms justify the family and account for the authors' correction.
+Confirm every included run has an evidence-based accuracy and usefulness assessment,
+and that both relative judgments state any ties and limitations.
 Give the operator the file path. Do not publish it.

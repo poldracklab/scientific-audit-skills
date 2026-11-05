@@ -259,8 +259,14 @@ Each finding gets one status:
 Disputed and untested findings end up **confirmed**, **partly confirmed**, or **refuted**.
 Status is never decided by counting audits.
 
-The consensus report does not rate the individual audits, and it does not hunt for new
-issues beyond what the audits raised.
+The appendix includes **Relative audit accuracy and usefulness**: separate judgments for
+every included audit, supported by adjudicated findings and allowing ties when the
+evidence does not clearly distinguish them. Accuracy concerns correctness and calibration;
+usefulness concerns consequential findings, reproducible evidence, and clear explanations
+of what holds or changes. The comparison accounts for scope and access to materials,
+weights scientific consequence rather than finding counts, and applies to these audits
+of this paper, not to the models generally. The consensus does not hunt for new issues
+beyond what the audits raised.
 
 ### Batch processing
 
