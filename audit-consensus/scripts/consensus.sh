@@ -15,7 +15,7 @@
 # consensus_unblinded.html is a copy with each run ID replaced by its model name.
 set -euo pipefail
 
-DEFAULT_MODEL="claude-opus-5-5"
+DEFAULT_MODEL="gpt-6-astra"
 
 usage() {
     echo "usage: $(basename "$0") [--interactive] <paper_id> [<model>]" >&2
