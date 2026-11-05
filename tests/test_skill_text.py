@@ -177,7 +177,8 @@ def test_review_exit_codes_and_incomplete_run_documented():
 CONSENSUS = SKILLS / "audit-consensus"
 CONSENSUS_SECTIONS = [
     "## AI-generated — not for publication", "## Preliminary & unvetted analysis",
-    "# Bottom line", "# Claims", "# Issues that matter", "# Minor issues",
+    "# Paper summary", "# Paper-wide problems", "# Main claims",
+    "# Minor issues {.appendix}",
     "# Noticed during adjudication", "# Claim verdicts by audit {.appendix}",
     "# Finding cross-walk {.appendix}", "# Adjudication notes {.appendix}",
     "# Cosmetic issues {.appendix}", "# Adjudication analyses {.appendix}",
@@ -234,7 +235,7 @@ def test_audit_prep_documents_corrigendum_role():
 
 
 def _consensus_main_body(text: str) -> str:
-    return text.split("# Bottom line", 1)[1].split("{.appendix}", 1)[0]
+    return text.split("# Paper summary", 1)[1].split("{.appendix}", 1)[0]
 
 
 def test_consensus_main_body_keeps_audit_bookkeeping_out():
@@ -243,19 +244,40 @@ def test_consensus_main_body_keeps_audit_bookkeeping_out():
     assert "major" in body and "moderate" in body
 
 
-def test_consensus_skill_sets_length_budget_and_triage():
+def test_consensus_report_explains_each_claim():
+    for relative in ["SKILL.md", "templates/consensus_template.qmd"]:
+        text = (CONSENSUS / relative).read_text()
+        for label in ["Claim", "Evidence", "Holds after audit", "If weakened"]:
+            assert f"**{label}**" in text, (relative, label)
+        for obsolete in ["800 words", "15 words", "Each fact appears once"]:
+            assert obsolete not in text
     text = _flat((CONSENSUS / "SKILL.md").read_text())
-    assert "at most 100 words" in text
-    assert "at most 800 words" in text and "main body" in text
-    assert "Only major and moderate issues get a record" in text
-    assert "does not change any reported number" in text
-    assert "Each fact appears once" in text
     assert "Run IDs and finding IDs stay in the appendix" in text
-    assert "count the main body's words" in text
+    assert "plain language" in text
+    assert "omit this section" in text
 
 
-def test_readme_describes_concise_consensus_report():
+def test_readme_describes_claim_centered_consensus_report():
     text = (SKILLS / "README.md").read_text()
-    for section in ["**Issues that matter**", "**Minor issues**", "**Adjudication notes**",
-                    "**Cosmetic issues**"]:
+    for section in ["**Paper summary**", "**Paper-wide problems**", "**Main claims**",
+                    "**Adjudication notes**", "**Cosmetic issues**"]:
         assert section in text, section
+    assert "capped at 800 words" not in text
+
+
+def test_multiplicity_requires_a_justified_family():
+    documents = [
+        "audit-consensus/SKILL.md",
+        "reproducibility-audit/references/analysis-recipes.md",
+        "neuroimaging-validity-audit/references/checks.md",
+    ]
+    for relative in documents:
+        text = _flat((SKILLS / relative).read_text())
+        for requirement in [
+            "same figure", "essentially identical tests", "correlations",
+            "brain voxels", "family membership", "sensitivity analysis",
+            "Holm", "existing correction", "do not downgrade",
+        ]:
+            assert requirement in text, (relative, requirement)
+    text = _flat((CONSENSUS / "SKILL.md").read_text())
+    assert "even for converged findings" in text
