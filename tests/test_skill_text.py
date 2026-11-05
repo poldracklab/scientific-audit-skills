@@ -195,6 +195,32 @@ def test_consensus_skill_frontmatter_and_rules():
     assert "letter grade" not in text.lower()
 
 
+def test_consensus_compares_audits_on_evidence_with_ties():
+    text = _flat((CONSENSUS / "SKILL.md").read_text())
+    assert "not a rating of the audits" not in text
+    for requirement in [
+        "**Accuracy**", "**Usefulness**", "tie", "adjudicated evidence",
+        "every included run", "scope and access", "unresolved",
+        "finding counts", "general model ranking",
+    ]:
+        assert requirement in text, requirement
+
+
+def test_consensus_template_requires_comparative_judgments():
+    text = (CONSENSUS / "templates/consensus_template.qmd").read_text()
+    assert "# Relative audit accuracy and usefulness {.appendix}" in text
+    for field in ["Run | Accuracy | Usefulness | Deciding evidence",
+                  "**Relative accuracy**", "**Relative usefulness**", "tie"]:
+        assert field in text, field
+
+
+def test_readme_documents_audit_comparison():
+    text = (SKILLS / "README.md").read_text()
+    assert "does not rate the individual audits" not in text
+    assert "**Relative audit accuracy and usefulness**" in text
+    assert "ties" in text
+
+
 def test_consensus_template_sections_in_order():
     t = (CONSENSUS / "templates/consensus_template.qmd").read_text()
     positions = [t.index(s) for s in CONSENSUS_SECTIONS]
