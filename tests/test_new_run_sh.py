@@ -1,4 +1,4 @@
-"""Tests for reproducibility-audit/scripts/new_run.sh, the run-and-audit launcher."""
+"""Behavior shared by the reproducibility and neuroimaging audit launchers."""
 import os
 import shutil
 import subprocess
@@ -6,9 +6,8 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = (
-    Path(__file__).resolve().parent.parent / "reproducibility-audit" / "scripts" / "new_run.sh"
-)
+ROOT = Path(__file__).resolve().parent.parent
+SKILLS = ("reproducibility-audit", "neuroimaging-validity-audit")
 FAKE_AGENT = """#!/usr/bin/env bash
 pwd -P > "$FAKE_LOG.cwd"
 echo "$(basename "$0")" > "$FAKE_LOG.name"
@@ -37,15 +36,20 @@ def write_exe(path, text):
     path.chmod(0o755)
 
 
+@pytest.fixture(params=SKILLS)
+def skill_name(request):
+    return request.param
+
+
 @pytest.fixture
-def installed(tmp_path):
+def installed(tmp_path, skill_name):
     """A skills tree holding a copy of the script and stub audit-prep scripts."""
     skills = tmp_path / "skills"
-    (skills / "reproducibility-audit" / "scripts").mkdir(parents=True)
+    (skills / skill_name / "scripts").mkdir(parents=True)
     prep = skills / "audit-prep" / "scripts"
     prep.mkdir(parents=True)
-    script = skills / "reproducibility-audit" / "scripts" / "new_run.sh"
-    shutil.copy2(SCRIPT, script)
+    script = skills / skill_name / "scripts" / "new_run.sh"
+    shutil.copy2(ROOT / skill_name / "scripts" / "new_run.sh", script)
     (prep / "new_run.py").write_text(STUB_NEW_RUN)
     (prep / "verify_run.py").write_text(STUB_VERIFY)
     return script
@@ -91,8 +95,8 @@ def flag_value(args, flag):
     return args[args.index(flag) + 1]
 
 
-def test_script_is_executable():
-    assert os.access(SCRIPT, os.X_OK)
+def test_script_is_executable(skill_name):
+    assert os.access(ROOT / skill_name / "scripts" / "new_run.sh", os.X_OK)
 
 
 @pytest.mark.parametrize("args", [(), ("Smith_2021",), ("a", "b", "c")])
@@ -129,7 +133,7 @@ def test_unverified_run_does_not_launch(installed, fake_env, corpus):
     assert not log.exists()
 
 
-def test_claude_headless_by_default(installed, fake_env, corpus):
+def test_claude_headless_by_default(installed, fake_env, corpus, skill_name):
     env, log = fake_env
     env["FAKE_OUTPUT"] = RESULT_LINE
     result = run_script(installed, env, corpus, "Smith_2021", "claude-opus-5-5")
@@ -140,8 +144,11 @@ def test_claude_headless_by_default(installed, fake_env, corpus):
     assert flag_value(args, "--model") == "claude-opus-5-5"
     assert flag_value(args, "--permission-mode") == "auto"
     assert flag_value(args, "--output-format") == "stream-json"
-    assert "Use the reproducibility-audit skill" in args[-1]
+    assert f"Use the {skill_name} skill" in args[-1]
     assert "audit-prep run for Smith_2021" in args[-1]
+    assert "verify_run.py" in args[-1] and "run_ok" in args[-1]
+    assert "leave every other file in the run folder unchanged" in args[-1]
+    assert "audit/audit.html" in args[-1] and "Do not publish" in args[-1]
 
 
 def test_headless_log_goes_under_audit(installed, fake_env, corpus):
