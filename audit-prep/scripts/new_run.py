@@ -101,7 +101,8 @@ def _now() -> str:
 
 
 def new_run(corpus: Corpus, paper_id: str, model: str, runs_root: Path | None = None,
-            run=subprocess.run, rng: random.Random | None = None) -> Path:
+            run=subprocess.run, rng: random.Random | None = None,
+            skill: str | None = None) -> Path:
     prepared = corpus.prepared_dir(paper_id)
     if not is_prepared(prepared):
         raise CorpusError(f"{paper_id} is not prepared; run `prep.py finalize` first")
@@ -114,7 +115,8 @@ def new_run(corpus: Corpus, paper_id: str, model: str, runs_root: Path | None = 
             "readme_sha256": _sha(prepared, "README.md")}
     _write_run_json(dest, info)
     set_dropbox_ignored(dest, run)
-    register_run(corpus.registry, {**info, "model": model, "run_path": str(dest), "clone_method": method})
+    register_run(corpus.registry, {**info, "model": model, "skill": skill,
+                                   "run_path": str(dest), "clone_method": method})
     return dest
 
 
@@ -122,6 +124,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="new_run.py", description=__doc__.splitlines()[0])
     parser.add_argument("paper_id")
     parser.add_argument("--model", required=True)
+    parser.add_argument("--skill", help="Audit skill selected for this run (registry only)")
     parser.add_argument("--root", type=Path)
     parser.add_argument("--runs-root", type=Path)
     return parser
@@ -131,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         corpus = find_root(Path.cwd(), explicit=args.root)
-        print(new_run(corpus, args.paper_id, args.model, runs_root=args.runs_root))
+        print(new_run(corpus, args.paper_id, args.model, runs_root=args.runs_root, skill=args.skill))
     except CorpusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

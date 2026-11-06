@@ -173,6 +173,13 @@ For a neuroimaging validity audit, use the corresponding launcher with the same 
 ```
 
 Both launchers use the workflow below, invoking their respective audit skills.
+They record the selected skill in each new `registry.jsonl` entry as
+`"skill": "reproducibility-audit"` or `"skill": "neuroimaging-validity-audit"`.
+This records the audit actually launched, including when chosen through
+`audit-routing`; a routing recommendation alone does not create an entry.
+For direct `new_run.py` calls, pass `--skill <skill-name>` to record the selection.
+Omitting it records `null` (unknown). Existing registry entries are unchanged.
+Registry writes happen in the operator's launcher; auditors do not access it.
 
 This creates `runs/Poldrack_2026/<run_id>/` with `new_run.py` (recording the model only in
 the operator's `registry.jsonl`), checks it with `verify_run.py`, and launches the auditor

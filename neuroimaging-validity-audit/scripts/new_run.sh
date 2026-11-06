@@ -43,7 +43,7 @@ EOF
 create_run() {
     local paperdir="$1" model="$2" root="$3" prep rundir status
     prep="$(prep_scripts)"
-    rundir="$(uv run "$prep/new_run.py" "$paperdir" --model "$model" --root "$root")"
+    rundir="$(uv run "$prep/new_run.py" "$paperdir" --model "$model" --root "$root" --skill "neuroimaging-validity-audit")"
     echo "New run dir for $model: $rundir" >&2
     status="$(uv run "$prep/verify_run.py" "$rundir" | head -1)"
     echo "verify_run: $status" >&2
