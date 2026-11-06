@@ -144,6 +144,14 @@ cd /path/to/autoaudit
 ~/.claude/skills/reproducibility-audit/scripts/new_run.sh Poldrack_2026 claude-opus-5-5
 ```
 
+For a neuroimaging validity audit, use the corresponding launcher with the same arguments:
+
+```sh
+~/.claude/skills/neuroimaging-validity-audit/scripts/new_run.sh Poldrack_2026 claude-opus-5-5
+```
+
+Both launchers use the workflow below, invoking their respective audit skills.
+
 This creates `runs/Poldrack_2026/<run_id>/` with `new_run.py` (recording the model only in
 the operator's `registry.jsonl`), checks it with `verify_run.py`, and launches the auditor
 in the run folder only if it reports `run_ok`. The harness is chosen from the model name:
