@@ -11,6 +11,7 @@ Adapted from Mike Frank's [claude-skills](https://github.com/mcfrank/claude-skil
 
 - `adversarial-protocol-review`: adversarial review of an experiment, eval or analysis for what could manufacture its result.
 - `audit-consensus`: reconcile several blinded audits of one paper into a consensus report of confirmed issues, their severity, and whether they change the paper's conclusions.
+- `audit-routing`: inspect a scientific paper package and recommend a validity or reproducibility audit, with feasible scope and missing inputs.
 - `audit-prep`: prepare paper folders into standardized, read-only audit inputs and create blinded audit runs.
 - `neuroimaging-validity-audit`: self-critical validity audit of published neuroimaging papers.
 - `reproducibility-audit`: computational reproducibility audit of a published paper in R and Quarto.
@@ -134,6 +135,27 @@ To start over, add `--overwrite`. It first removes the earlier prep of that pape
 `statements.md` in the raw folder, and its transcripts in `logs/prep/`. The supplied files
 are kept, and so are any audit runs in `runs/Poldrack_2026/`, which still reflect the old
 snapshot (the launcher prints a note when there are any).
+
+### Choose an audit (optional)
+
+Ask an agent to use `audit-routing` on the prepared paper folder, supplying your
+objective and resource budget. It recommends `neuroimaging-validity-audit` or
+`reproducibility-audit`, explains the evidence behind the choice, and identifies
+complementary checks and missing inputs. Routing is read-only and can also give
+a provisional recommendation for an unprepared folder; it does not prepare the
+package or launch an audit. Missing data narrow feasibility without changing a
+requested reproduction into a different objective.
+
+For example, in an agent session:
+
+```text
+Use audit-routing on /path/to/autoaudit/prepared/Poldrack_2026.
+I want to assess whether the central imaging claims are supported, using document
+review and small local checks within a 30-minute budget. Recommend the primary
+audit, complementary checks, and any missing inputs; do not start the audit yet.
+```
+
+Use the recommended skill's launcher below once the package is prepared.
 
 ### 3. Create a blinded run and audit it
 
