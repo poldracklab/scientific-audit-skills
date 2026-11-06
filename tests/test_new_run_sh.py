@@ -116,12 +116,13 @@ def test_must_run_from_corpus_root(installed, fake_env, tmp_path):
     assert not log.exists()
 
 
-def test_creates_run_with_sibling_audit_prep(installed, fake_env, corpus):
+def test_creates_run_with_sibling_audit_prep(installed, fake_env, corpus, skill_name):
     env, _ = fake_env
     result = run_script(installed, env, corpus, "Smith_2021", "claude-opus-5-5")
     assert result.returncode == 0, result.stderr
     args = (corpus / "new_run_args").read_text().split("\0")
-    assert args == ["Smith_2021", "--model", "claude-opus-5-5", "--root", str(corpus)]
+    assert args == ["Smith_2021", "--model", "claude-opus-5-5", "--root", str(corpus),
+                    "--skill", skill_name]
 
 
 def test_unverified_run_does_not_launch(installed, fake_env, corpus):

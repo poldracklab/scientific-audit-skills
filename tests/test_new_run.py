@@ -194,3 +194,22 @@ def test_destination_is_reserved_before_copy_and_stays_reserved_during_fallback(
     assert clone_tree(src, dest, run=copy) == "rsync"
     assert inode[0] == inode[1]
     assert (dest / "file").read_text() == "source"
+
+
+@pytest.mark.parametrize("skill", ["reproducibility-audit", "neuroimaging-validity-audit"])
+def test_cli_records_selected_skill_in_registry(prepared_corpus, skill, capsys):
+    from new_run import main
+
+    assert main(["Paper_2024", "--model", MODEL, "--root", str(prepared_corpus.root),
+                 "--skill", skill]) == 0
+    entry = json.loads(prepared_corpus.registry.read_text().splitlines()[-1])
+    assert entry["skill"] == skill
+    assert entry["model"] == MODEL
+    assert entry["run_path"] == capsys.readouterr().out.strip()
+    assert MODEL not in _all_text(prepared_corpus.runs_dir("Paper_2024"))
+
+
+def test_unspecified_skill_is_explicitly_unknown(prepared_corpus):
+    new_run(prepared_corpus, "Paper_2024", MODEL)
+    entry = json.loads(prepared_corpus.registry.read_text().splitlines()[-1])
+    assert entry["skill"] is None
